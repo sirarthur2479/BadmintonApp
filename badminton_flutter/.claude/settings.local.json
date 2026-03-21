@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find . -not -path */build/* -not -path */.dart_tool/* -not -path */.idea/* -not -path */.* -type f -o -type d)",
+      "Bash(~/flutter/bin/flutter pub:*)",
+      "Bash(/c/Users/arthur.liu/flutter/bin/flutter pub:*)",
+      "Bash(/c/flutter/bin/flutter pub:*)",
+      "Bash(~/flutter/bin/flutter analyze:*)"
+    ]
+  }
+}
