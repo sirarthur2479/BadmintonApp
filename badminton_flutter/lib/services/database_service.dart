@@ -14,6 +14,7 @@ class DatabaseService {
   // ── In-memory stores (web only) ──────────────────────────────────────────
   static final List<TrainingSession> _webSessions = [];
   static final List<Tournament> _webTournaments = [];
+  static final List<String> _webCustomTags = [];
 
   // ── sqflite init ─────────────────────────────────────────────────────────
   static Future<Database> get _database async {
@@ -38,6 +39,7 @@ class DatabaseService {
       onUpgrade: _upgrade,
       onCreate: (db, version) async {
         await _createSessionsTable(db);
+        await _createCustomTagsTable(db);
         await db.execute('''
           CREATE TABLE tournaments (
             id TEXT PRIMARY KEY,
@@ -107,8 +109,13 @@ class DatabaseService {
         }
         await txn.execute('DROP TABLE sessions');
         await txn.execute('ALTER TABLE sessions_new RENAME TO sessions');
+        await _createCustomTagsTable(txn);
       });
     }
+  }
+
+  static Future<void> _createCustomTagsTable(DatabaseExecutor db) async {
+    await db.execute('CREATE TABLE custom_tags (name TEXT PRIMARY KEY)');
   }
 
   // ── Test hooks ───────────────────────────────────────────────────────────
@@ -207,6 +214,35 @@ class DatabaseService {
       );
     }
     await batch.commit(noResult: true);
+  }
+
+  // ── Custom drill tags ────────────────────────────────────────────────────
+
+  static Future<List<String>> getCustomTags() async {
+    if (kIsWeb) return List.from(_webCustomTags)..sort();
+    final db = await _database;
+    final rows = await db.query('custom_tags', orderBy: 'name ASC');
+    return rows.map((r) => r['name'] as String).toList();
+  }
+
+  static Future<void> insertCustomTag(String name) async {
+    if (kIsWeb) {
+      if (!_webCustomTags.contains(name)) _webCustomTags.add(name);
+      return;
+    }
+    final db = await _database;
+    await db.insert('custom_tags', {
+      'name': name,
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
+  }
+
+  static Future<void> deleteCustomTag(String name) async {
+    if (kIsWeb) {
+      _webCustomTags.remove(name);
+      return;
+    }
+    final db = await _database;
+    await db.delete('custom_tags', where: 'name = ?', whereArgs: [name]);
   }
 
   // ── Tournaments ───────────────────────────────────────────────────────────

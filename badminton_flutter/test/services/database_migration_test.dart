@@ -72,24 +72,28 @@ void main() {
     await createV1Database();
   });
 
-  test('migration v1→v2 preserves sessions and converts comma drills to JSON',
-      () async {
-    final loaded = await DatabaseService.getSessions();
+  test(
+    'migration v1→v2 preserves sessions and converts comma drills to JSON',
+    () async {
+      final loaded = await DatabaseService.getSessions();
 
-    expect(loaded, hasLength(1));
-    final s = loaded.first;
-    expect(s.id, 'legacy-session-1');
-    expect(s.drills, ['Smash', 'Footwork', 'Net Play']);
-    expect(s.intensity, 4);
-    expect(s.durationMinutes, 75);
-    expect(s.notes, 'pre-migration row');
+      expect(loaded, hasLength(1));
+      final s = loaded.first;
+      expect(s.id, 'legacy-session-1');
+      expect(s.drills, ['Smash', 'Footwork', 'Net Play']);
+      expect(s.intensity, 4);
+      expect(s.durationMinutes, 75);
+      expect(s.notes, 'pre-migration row');
 
-    // The stored column itself must be JSON now, not merely readable via
-    // the model's legacy fallback.
-    final raw = await DatabaseService.debugRawQuery(
-        'SELECT drills FROM sessions WHERE id = ?', ['legacy-session-1']);
-    expect(raw.first['drills'], '["Smash","Footwork","Net Play"]');
-  });
+      // The stored column itself must be JSON now, not merely readable via
+      // the model's legacy fallback.
+      final raw = await DatabaseService.debugRawQuery(
+        'SELECT drills FROM sessions WHERE id = ?',
+        ['legacy-session-1'],
+      );
+      expect(raw.first['drills'], '["Smash","Footwork","Net Play"]');
+    },
+  );
 
   test('migration leaves new columns at defaults for legacy rows', () async {
     final s = (await DatabaseService.getSessions()).single;

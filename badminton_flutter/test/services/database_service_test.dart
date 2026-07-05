@@ -21,8 +21,11 @@ void main() {
     // Force the DB open via any call, then inspect the pragma.
     await DatabaseService.getSessions();
     final result = await DatabaseService.debugRawQuery('PRAGMA foreign_keys');
-    expect(result.first.values.first, 1,
-        reason: 'PRAGMA foreign_keys must be ON for this connection');
+    expect(
+      result.first.values.first,
+      1,
+      reason: 'PRAGMA foreign_keys must be ON for this connection',
+    );
   });
 
   test('deleting a tournament row cascades to matches via SQL', () async {
@@ -34,63 +37,74 @@ void main() {
       format: 'Knockout',
     );
     await DatabaseService.insertTournament(tournament);
-    await DatabaseService.insertMatch(TournamentMatch(
-      id: const Uuid().v4(),
-      tournamentId: tournament.id,
-      opponent: 'A. Rival',
-      scores: const ['21-15', '21-18'],
-      isWin: true,
-    ));
+    await DatabaseService.insertMatch(
+      TournamentMatch(
+        id: const Uuid().v4(),
+        tournamentId: tournament.id,
+        opponent: 'A. Rival',
+        scores: const ['21-15', '21-18'],
+        isWin: true,
+      ),
+    );
 
     // Delete the tournament row directly — NOT via deleteTournament(),
     // which removes matches manually. Only the FK cascade can clean up here.
     await DatabaseService.debugRawDelete(
-        'DELETE FROM tournaments WHERE id = ?', [tournament.id]);
+      'DELETE FROM tournaments WHERE id = ?',
+      [tournament.id],
+    );
 
     final orphans = await DatabaseService.debugRawQuery(
-        'SELECT * FROM matches WHERE tournamentId = ?', [tournament.id]);
-    expect(orphans, isEmpty,
-        reason: 'matches must cascade-delete with their tournament');
+      'SELECT * FROM matches WHERE tournamentId = ?',
+      [tournament.id],
+    );
+    expect(
+      orphans,
+      isEmpty,
+      reason: 'matches must cascade-delete with their tournament',
+    );
   });
 
-  test('updateSession persists modified goal, drills, and reflection fields',
-      () async {
-    final original = TrainingSession(
-      id: 'update-me',
-      date: DateTime(2026, 7, 2),
-      durationMinutes: 60,
-      drills: const ['Footwork'],
-      sessionGoal: 'Original goal',
-      goalAchievementScore: 2,
-    );
-    await DatabaseService.insertSession(original);
+  test(
+    'updateSession persists modified goal, drills, and reflection fields',
+    () async {
+      final original = TrainingSession(
+        id: 'update-me',
+        date: DateTime(2026, 7, 2),
+        durationMinutes: 60,
+        drills: const ['Footwork'],
+        sessionGoal: 'Original goal',
+        goalAchievementScore: 2,
+      );
+      await DatabaseService.insertSession(original);
 
-    final edited = original.copyWith(
-      date: DateTime(2026, 7, 3),
-      durationMinutes: 90,
-      drills: const ['Footwork', 'Smash, steep angle'],
-      sessionGoal: 'Edited goal',
-      goalAchievementScore: 5,
-      playerRemarks: 'Felt strong',
-      coachRemarks: 'Better base position',
-      reflectionAnswersJson:
-          '[{"questionKey":"Why did you set this goal for today?","answer":"edit"}]',
-      notes: 'edited notes',
-    );
-    await DatabaseService.updateSession(edited);
+      final edited = original.copyWith(
+        date: DateTime(2026, 7, 3),
+        durationMinutes: 90,
+        drills: const ['Footwork', 'Smash, steep angle'],
+        sessionGoal: 'Edited goal',
+        goalAchievementScore: 5,
+        playerRemarks: 'Felt strong',
+        coachRemarks: 'Better base position',
+        reflectionAnswersJson:
+            '[{"questionKey":"Why did you set this goal for today?","answer":"edit"}]',
+        notes: 'edited notes',
+      );
+      await DatabaseService.updateSession(edited);
 
-    final loaded = (await DatabaseService.getSessions()).single;
-    expect(loaded.id, 'update-me');
-    expect(loaded.date, DateTime(2026, 7, 3));
-    expect(loaded.durationMinutes, 90);
-    expect(loaded.drills, ['Footwork', 'Smash, steep angle']);
-    expect(loaded.sessionGoal, 'Edited goal');
-    expect(loaded.goalAchievementScore, 5);
-    expect(loaded.playerRemarks, 'Felt strong');
-    expect(loaded.coachRemarks, 'Better base position');
-    expect(loaded.reflectionAnswersJson, edited.reflectionAnswersJson);
-    expect(loaded.notes, 'edited notes');
-  });
+      final loaded = (await DatabaseService.getSessions()).single;
+      expect(loaded.id, 'update-me');
+      expect(loaded.date, DateTime(2026, 7, 3));
+      expect(loaded.durationMinutes, 90);
+      expect(loaded.drills, ['Footwork', 'Smash, steep angle']);
+      expect(loaded.sessionGoal, 'Edited goal');
+      expect(loaded.goalAchievementScore, 5);
+      expect(loaded.playerRemarks, 'Felt strong');
+      expect(loaded.coachRemarks, 'Better base position');
+      expect(loaded.reflectionAnswersJson, edited.reflectionAnswersJson);
+      expect(loaded.notes, 'edited notes');
+    },
+  );
 
   test('updateSession leaves other sessions untouched', () async {
     final a = TrainingSession(
@@ -110,8 +124,10 @@ void main() {
     await DatabaseService.updateSession(a.copyWith(sessionGoal: 'changed'));
 
     final loaded = await DatabaseService.getSessions();
-    expect(loaded.singleWhere((s) => s.id == 'session-a').sessionGoal,
-        'changed');
+    expect(
+      loaded.singleWhere((s) => s.id == 'session-a').sessionGoal,
+      'changed',
+    );
     expect(loaded.singleWhere((s) => s.id == 'session-b').sessionGoal, '');
   });
 
@@ -119,12 +135,13 @@ void main() {
     await DatabaseService.insertCustomTag('Shadow Footwork');
     await DatabaseService.insertCustomTag('Multi-feed, front court');
 
-    expect(await DatabaseService.getCustomTags(),
-        ['Multi-feed, front court', 'Shadow Footwork']);
+    expect(await DatabaseService.getCustomTags(), [
+      'Multi-feed, front court',
+      'Shadow Footwork',
+    ]);
 
     await DatabaseService.deleteCustomTag('Shadow Footwork');
-    expect(await DatabaseService.getCustomTags(),
-        ['Multi-feed, front court']);
+    expect(await DatabaseService.getCustomTags(), ['Multi-feed, front court']);
   });
 
   test('custom tags: duplicate insert is a no-op', () async {
