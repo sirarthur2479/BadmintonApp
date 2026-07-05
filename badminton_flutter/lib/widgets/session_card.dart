@@ -5,12 +5,19 @@ import 'package:intl/intl.dart';
 import '../models/session.dart';
 import '../services/photo_store.dart';
 import '../theme/app_theme.dart';
+import 'star_rating.dart';
 
 class SessionCard extends StatelessWidget {
   final TrainingSession session;
+  final VoidCallback? onEdit;
   final VoidCallback? onDelete;
 
-  const SessionCard({super.key, required this.session, this.onDelete});
+  const SessionCard({
+    super.key,
+    required this.session,
+    this.onEdit,
+    this.onDelete,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -28,13 +35,38 @@ class SessionCard extends StatelessWidget {
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                 ),
-                _IntensityDots(intensity: session.intensity),
+                // Goal-based sessions get achievement stars; older sessions
+                // keep their legacy intensity dots.
+                if (session.sessionGoal.isNotEmpty)
+                  StarRating(
+                    value: session.goalAchievementScore,
+                    size: 14,
+                    color: AppTheme.goalScoreColor(
+                      session.goalAchievementScore,
+                    ),
+                  )
+                else if (session.intensity != null)
+                  _IntensityDots(intensity: session.intensity!),
+                if (onEdit != null) ...[
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: onEdit,
+                    child: const Icon(
+                      Icons.edit_outlined,
+                      size: 20,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                ],
                 if (onDelete != null) ...[
                   const SizedBox(width: 8),
                   GestureDetector(
                     onTap: onDelete,
-                    child: const Icon(Icons.delete_outline,
-                        size: 20, color: AppTheme.textSecondary),
+                    child: const Icon(
+                      Icons.delete_outline,
+                      size: 20,
+                      color: AppTheme.textSecondary,
+                    ),
                   ),
                 ],
               ],
@@ -42,8 +74,11 @@ class SessionCard extends StatelessWidget {
             const SizedBox(height: 6),
             Row(
               children: [
-                const Icon(Icons.timer_outlined,
-                    size: 14, color: AppTheme.textSecondary),
+                const Icon(
+                  Icons.timer_outlined,
+                  size: 14,
+                  color: AppTheme.textSecondary,
+                ),
                 const SizedBox(width: 4),
                 Text(
                   '${session.durationMinutes} min',
@@ -51,18 +86,58 @@ class SessionCard extends StatelessWidget {
                 ),
               ],
             ),
+            if (session.sessionGoal.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  const Icon(
+                    Icons.flag_outlined,
+                    size: 14,
+                    color: AppTheme.primary,
+                  ),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      session.sessionGoal,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ],
             if (session.drills.isNotEmpty) ...[
               const SizedBox(height: 8),
               Wrap(
                 spacing: 6,
                 runSpacing: 4,
                 children: session.drills
-                    .map((d) => Chip(
-                          label: Text(d),
-                          materialTapTargetSize:
-                              MaterialTapTargetSize.shrinkWrap,
-                        ))
+                    .map(
+                      (d) => Chip(
+                        label: Text(d),
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                    )
                     .toList(),
+              ),
+            ],
+            if (session.playerRemarks.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text(
+                'Player: ${session.playerRemarks}',
+                style: Theme.of(context).textTheme.bodySmall,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+            if (session.coachRemarks.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Coach: ${session.coachRemarks}',
+                style: Theme.of(context).textTheme.bodySmall,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
             ],
             if (session.notes.isNotEmpty) ...[
@@ -100,9 +175,8 @@ class _PhotoThumbnail extends StatelessWidget {
         return GestureDetector(
           onTap: () => showDialog<void>(
             context: context,
-            builder: (_) => Dialog(
-              child: InteractiveViewer(child: Image.file(File(path))),
-            ),
+            builder: (_) =>
+                Dialog(child: InteractiveViewer(child: Image.file(File(path)))),
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(8),

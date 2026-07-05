@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../providers/session_provider.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/goal_achievement_chart.dart';
+import '../../widgets/star_rating.dart';
 import '../../widgets/streak_badge.dart';
 import '../../widgets/stat_card.dart';
 import '../train/log_session_screen.dart';
@@ -114,17 +116,41 @@ class HomeScreen extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 4),
-                          Text(
-                            '${latest.durationMinutes} min · Intensity ${latest.intensity}/5',
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
+                          if (latest.sessionGoal.isNotEmpty) ...[
+                            Text(
+                              latest.sessionGoal,
+                              style: Theme.of(context).textTheme.bodyMedium,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                Text(
+                                  '${latest.durationMinutes} min · ',
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                                StarRating(
+                                  value: latest.goalAchievementScore,
+                                  size: 14,
+                                  color: AppTheme.goalScoreColor(
+                                    latest.goalAchievementScore,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ] else
+                            Text(
+                              latest.intensity != null
+                                  ? '${latest.durationMinutes} min · Intensity ${latest.intensity}/5'
+                                  : '${latest.durationMinutes} min',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
                           if (latest.drills.isNotEmpty) ...[
                             const SizedBox(height: 6),
                             Text(
                               latest.drills.join(', '),
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall
+                              style: Theme.of(context).textTheme.bodySmall
                                   ?.copyWith(color: AppTheme.textSecondary),
                             ),
                           ],
@@ -140,8 +166,11 @@ class HomeScreen extends StatelessWidget {
                       child: Center(
                         child: Column(
                           children: [
-                            Icon(Icons.fitness_center,
-                                size: 40, color: AppTheme.textSecondary),
+                            Icon(
+                              Icons.fitness_center,
+                              size: 40,
+                              color: AppTheme.textSecondary,
+                            ),
                             SizedBox(height: 8),
                             Text(
                               'No sessions yet.\nTap + to log your first session!',
@@ -153,6 +182,17 @@ class HomeScreen extends StatelessWidget {
                       ),
                     ),
                   ),
+                ],
+
+                // Goal achievement trend
+                if (provider.sessions.isNotEmpty) ...[
+                  const SizedBox(height: 24),
+                  Text(
+                    'Goal achievement trend',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 12),
+                  const GoalAchievementChart(),
                 ],
               ],
             ),

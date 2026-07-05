@@ -25,7 +25,11 @@ class TechniqueCard extends StatelessWidget {
                   color: const Color(0xFFE8F5E9),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(Icons.sports, color: AppTheme.primary, size: 24),
+                child: const Icon(
+                  Icons.sports,
+                  color: AppTheme.primary,
+                  size: 24,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(

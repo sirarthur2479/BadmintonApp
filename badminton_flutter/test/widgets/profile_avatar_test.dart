@@ -27,20 +27,27 @@ void main() {
       return f;
     });
 
-    await tester.runAsync(() => tester.pumpWidget(MaterialApp(
+    await tester.runAsync(
+      () => tester.pumpWidget(
+        MaterialApp(
           home: Scaffold(body: ProfileAvatar(photoPath: file!.path)),
-        )));
+        ),
+      ),
+    );
 
     final avatar = tester.widget<CircleAvatar>(find.byType(CircleAvatar));
-    expect(avatar.backgroundImage, isA<FileImage>(),
-        reason: 'local paths must use FileImage on device, not NetworkImage');
+    expect(
+      avatar.backgroundImage,
+      isA<FileImage>(),
+      reason: 'local paths must use FileImage on device, not NetworkImage',
+    );
     expect((avatar.backgroundImage as FileImage).file.path, file!.path);
   });
 
   testWidgets('renders fallback icon when path is null', (tester) async {
-    await tester.pumpWidget(const MaterialApp(
-      home: Scaffold(body: ProfileAvatar(photoPath: null)),
-    ));
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: ProfileAvatar(photoPath: null))),
+    );
 
     final avatar = tester.widget<CircleAvatar>(find.byType(CircleAvatar));
     expect(avatar.backgroundImage, isNull);

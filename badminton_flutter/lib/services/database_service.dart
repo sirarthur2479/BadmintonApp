@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
@@ -12,6 +14,7 @@ class DatabaseService {
   // ── In-memory stores (web only) ──────────────────────────────────────────
   static final List<TrainingSession> _webSessions = [];
   static final List<Tournament> _webTournaments = [];
+  static final List<String> _webCustomTags = [];
 
   // ── sqflite init ─────────────────────────────────────────────────────────
   static Future<Database> get _database async {
@@ -29,22 +32,14 @@ class DatabaseService {
 
     return openDatabase(
       path,
-      version: 1,
+      version: 2,
       // sqflite leaves foreign keys OFF by default; without this the
       // matches-table ON DELETE CASCADE is inert.
       onConfigure: (db) => db.execute('PRAGMA foreign_keys = ON'),
+      onUpgrade: _upgrade,
       onCreate: (db, version) async {
-        await db.execute('''
-          CREATE TABLE sessions (
-            id TEXT PRIMARY KEY,
-            date TEXT NOT NULL,
-            durationMinutes INTEGER NOT NULL,
-            drills TEXT NOT NULL,
-            intensity INTEGER NOT NULL,
-            notes TEXT NOT NULL,
-            photoPath TEXT
-          )
-        ''');
+        await _createSessionsTable(db);
+        await _createCustomTagsTable(db);
         await db.execute('''
           CREATE TABLE tournaments (
             id TEXT PRIMARY KEY,
@@ -69,6 +64,60 @@ class DatabaseService {
     );
   }
 
+  /// Schema v2: intensity is nullable (legacy rating), goal/reflection
+  /// columns added, drills stored as a JSON array.
+  static Future<void> _createSessionsTable(
+    DatabaseExecutor db, {
+    String name = 'sessions',
+  }) async {
+    await db.execute('''
+      CREATE TABLE $name (
+        id TEXT PRIMARY KEY,
+        date TEXT NOT NULL,
+        durationMinutes INTEGER NOT NULL,
+        drills TEXT NOT NULL,
+        intensity INTEGER,
+        notes TEXT NOT NULL,
+        photoPath TEXT,
+        sessionGoal TEXT NOT NULL DEFAULT '',
+        goalAchievementScore INTEGER NOT NULL DEFAULT 3,
+        playerRemarks TEXT NOT NULL DEFAULT '',
+        coachRemarks TEXT NOT NULL DEFAULT '',
+        reflectionAnswersJson TEXT NOT NULL DEFAULT '[]'
+      )
+    ''');
+  }
+
+  static Future<void> _upgrade(
+    Database db,
+    int oldVersion,
+    int newVersion,
+  ) async {
+    if (oldVersion < 2) {
+      // v1 declared intensity NOT NULL, so the table must be rebuilt, not
+      // ALTERed. Drills switch from comma-joined text to a JSON array in the
+      // same pass.
+      await db.transaction((txn) async {
+        await _createSessionsTable(txn, name: 'sessions_new');
+        final rows = await txn.query('sessions');
+        for (final row in rows) {
+          final rawDrills = row['drills'] as String? ?? '';
+          await txn.insert('sessions_new', {
+            ...row,
+            'drills': jsonEncode(rawDrills.isEmpty ? [] : rawDrills.split(',')),
+          });
+        }
+        await txn.execute('DROP TABLE sessions');
+        await txn.execute('ALTER TABLE sessions_new RENAME TO sessions');
+        await _createCustomTagsTable(txn);
+      });
+    }
+  }
+
+  static Future<void> _createCustomTagsTable(DatabaseExecutor db) async {
+    await db.execute('CREATE TABLE custom_tags (name TEXT PRIMARY KEY)');
+  }
+
   // ── Test hooks ───────────────────────────────────────────────────────────
 
   /// Closes and deletes the database so each test starts fresh.
@@ -81,8 +130,10 @@ class DatabaseService {
   }
 
   @visibleForTesting
-  static Future<List<Map<String, Object?>>> debugRawQuery(String sql,
-      [List<Object?>? args]) async {
+  static Future<List<Map<String, Object?>>> debugRawQuery(
+    String sql, [
+    List<Object?>? args,
+  ]) async {
     final db = await _database;
     return db.rawQuery(sql, args);
   }
@@ -97,8 +148,7 @@ class DatabaseService {
 
   static Future<List<TrainingSession>> getSessions() async {
     if (kIsWeb) {
-      return List.from(_webSessions)
-        ..sort((a, b) => b.date.compareTo(a.date));
+      return List.from(_webSessions)..sort((a, b) => b.date.compareTo(a.date));
     }
     final db = await _database;
     final maps = await db.query('sessions', orderBy: 'date DESC');
@@ -111,8 +161,26 @@ class DatabaseService {
       return;
     }
     final db = await _database;
-    await db.insert('sessions', session.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace);
+    await db.insert(
+      'sessions',
+      session.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  static Future<void> updateSession(TrainingSession session) async {
+    if (kIsWeb) {
+      final idx = _webSessions.indexWhere((s) => s.id == session.id);
+      if (idx >= 0) _webSessions[idx] = session;
+      return;
+    }
+    final db = await _database;
+    await db.update(
+      'sessions',
+      session.toMap(),
+      where: 'id = ?',
+      whereArgs: [session.id],
+    );
   }
 
   static Future<void> deleteSession(String id) async {
@@ -139,10 +207,42 @@ class DatabaseService {
     final db = await _database;
     final batch = db.batch();
     for (final s in sessions) {
-      batch.insert('sessions', s.toMap(),
-          conflictAlgorithm: ConflictAlgorithm.ignore);
+      batch.insert(
+        'sessions',
+        s.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
     }
     await batch.commit(noResult: true);
+  }
+
+  // ── Custom drill tags ────────────────────────────────────────────────────
+
+  static Future<List<String>> getCustomTags() async {
+    if (kIsWeb) return List.from(_webCustomTags)..sort();
+    final db = await _database;
+    final rows = await db.query('custom_tags', orderBy: 'name ASC');
+    return rows.map((r) => r['name'] as String).toList();
+  }
+
+  static Future<void> insertCustomTag(String name) async {
+    if (kIsWeb) {
+      if (!_webCustomTags.contains(name)) _webCustomTags.add(name);
+      return;
+    }
+    final db = await _database;
+    await db.insert('custom_tags', {
+      'name': name,
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
+  }
+
+  static Future<void> deleteCustomTag(String name) async {
+    if (kIsWeb) {
+      _webCustomTags.remove(name);
+      return;
+    }
+    final db = await _database;
+    await db.delete('custom_tags', where: 'name = ?', whereArgs: [name]);
   }
 
   // ── Tournaments ───────────────────────────────────────────────────────────
@@ -173,8 +273,11 @@ class DatabaseService {
       return;
     }
     final db = await _database;
-    await db.insert('tournaments', tournament.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace);
+    await db.insert(
+      'tournaments',
+      tournament.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
 
   static Future<void> deleteTournament(String id) async {
@@ -191,14 +294,18 @@ class DatabaseService {
     if (kIsWeb) {
       final idx = _webTournaments.indexWhere((t) => t.id == match.tournamentId);
       if (idx >= 0) {
-        _webTournaments[idx] = _webTournaments[idx]
-            .copyWith(matches: [..._webTournaments[idx].matches, match]);
+        _webTournaments[idx] = _webTournaments[idx].copyWith(
+          matches: [..._webTournaments[idx].matches, match],
+        );
       }
       return;
     }
     final db = await _database;
-    await db.insert('matches', match.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace);
+    await db.insert(
+      'matches',
+      match.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
 
   static Future<void> deleteMatch(String id) async {
@@ -206,8 +313,9 @@ class DatabaseService {
       for (int i = 0; i < _webTournaments.length; i++) {
         final t = _webTournaments[i];
         if (t.matches.any((m) => m.id == id)) {
-          _webTournaments[i] =
-              t.copyWith(matches: t.matches.where((m) => m.id != id).toList());
+          _webTournaments[i] = t.copyWith(
+            matches: t.matches.where((m) => m.id != id).toList(),
+          );
           break;
         }
       }

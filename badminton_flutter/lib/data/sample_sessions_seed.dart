@@ -1,5 +1,6 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
+import '../models/reflection_data.dart';
 import '../models/session.dart';
 import '../services/database_service.dart';
 
@@ -24,8 +25,7 @@ List<TrainingSession> buildSampleSessions() {
   final uuid = const Uuid();
 
   // Helper to create a date relative to today
-  DateTime daysAgo(int days) =>
-      DateTime(now.year, now.month, now.day - days);
+  DateTime daysAgo(int days) => DateTime(now.year, now.month, now.day - days);
 
   return [
     // Week 1 (most recent)
@@ -36,6 +36,20 @@ List<TrainingSession> buildSampleSessions() {
       drills: ['Footwork', 'Smash', 'Multi-Feed'],
       intensity: 4,
       notes: 'Good smash session. Worked on jump smash timing.',
+      sessionGoal: 'Steeper jump smash from the rear court',
+      goalAchievementScore: 4,
+      playerRemarks: 'Timing clicked in the last two feeds',
+      coachRemarks: 'Contact point is higher — keep it there',
+      reflectionAnswersJson: encodeReflectionAnswers([
+        ReflectionAnswer(
+          questionKey: kReflectionQuestions[0],
+          answer: 'Smashes sat up too much at last tournament.',
+        ),
+        ReflectionAnswer(
+          questionKey: kReflectionQuestions[5],
+          answer: 'Close — steeper now, but only from mid-court.',
+        ),
+      ]),
     ),
     TrainingSession(
       id: uuid.v4(),
@@ -44,6 +58,10 @@ List<TrainingSession> buildSampleSessions() {
       drills: ['Footwork', 'Net Play', 'Serve'],
       intensity: 3,
       notes: 'Focus on net kill consistency.',
+      sessionGoal: 'Five net kills in a row without a fault',
+      goalAchievementScore: 3,
+      playerRemarks: 'Got to four twice',
+      coachRemarks: 'Racket carriage is better; watch the lunge depth',
     ),
     TrainingSession(
       id: uuid.v4(),
@@ -52,6 +70,15 @@ List<TrainingSession> buildSampleSessions() {
       drills: ['Match Play', 'Footwork'],
       intensity: 5,
       notes: 'Tournament prep match. Won 3-1 sets.',
+      sessionGoal: 'Use the full game plan under match pressure',
+      goalAchievementScore: 5,
+      playerRemarks: 'Stuck to the plan even when behind',
+      reflectionAnswersJson: encodeReflectionAnswers([
+        ReflectionAnswer(
+          questionKey: kReflectionQuestions[3],
+          answer: 'Kept the base position reminder in mind every rally.',
+        ),
+      ]),
     ),
     TrainingSession(
       id: uuid.v4(),

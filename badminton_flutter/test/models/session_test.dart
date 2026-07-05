@@ -42,8 +42,7 @@ void main() {
       expect(restored.notes, '');
     });
 
-    test('drills with multiple entries survive the comma-join round-trip',
-        () {
+    test('drills with multiple entries survive the storage round-trip', () {
       final session = TrainingSession(
         id: 'session-3',
         date: DateTime(2026, 7, 12),
@@ -55,6 +54,154 @@ void main() {
       final restored = TrainingSession.fromMap(session.toMap());
 
       expect(restored.drills, ['Drive', 'Clear', 'Multi-Feed', 'Match Play']);
+    });
+  });
+
+  group('drills JSON storage', () {
+    test('round-trip preserves a tag containing a comma', () {
+      final session = TrainingSession(
+        id: 'session-4',
+        date: DateTime(2026, 7, 13),
+        durationMinutes: 45,
+        drills: const ['Multi-feed, front court', 'Smash'],
+        intensity: 2,
+      );
+
+      final restored = TrainingSession.fromMap(session.toMap());
+
+      expect(restored.drills, ['Multi-feed, front court', 'Smash']);
+    });
+
+    test('toMap writes drills as a JSON array', () {
+      final session = TrainingSession(
+        id: 'session-5',
+        date: DateTime(2026, 7, 13),
+        durationMinutes: 45,
+        drills: const ['Footwork', 'Smash'],
+        intensity: 2,
+      );
+
+      expect(session.toMap()['drills'], '["Footwork","Smash"]');
+    });
+
+    test('toMap writes an empty drill list as an empty JSON array', () {
+      final session = TrainingSession(
+        id: 'session-6',
+        date: DateTime(2026, 7, 13),
+        durationMinutes: 45,
+        drills: const [],
+        intensity: 2,
+      );
+
+      expect(session.toMap()['drills'], '[]');
+    });
+
+    test('fromMap parses legacy comma-joined drills', () {
+      final restored = TrainingSession.fromMap({
+        'id': 'legacy-1',
+        'date': DateTime(2026, 1, 5).toIso8601String(),
+        'durationMinutes': 60,
+        'drills': 'Footwork,Smash,Net Play',
+        'intensity': 3,
+        'notes': '',
+        'photoPath': null,
+      });
+
+      expect(restored.drills, ['Footwork', 'Smash', 'Net Play']);
+    });
+
+    test('fromMap parses a legacy empty drills string as no drills', () {
+      final restored = TrainingSession.fromMap({
+        'id': 'legacy-2',
+        'date': DateTime(2026, 1, 6).toIso8601String(),
+        'durationMinutes': 60,
+        'drills': '',
+        'intensity': 3,
+        'notes': '',
+        'photoPath': null,
+      });
+
+      expect(restored.drills, isEmpty);
+    });
+  });
+
+  group('goal and reflection fields', () {
+    test('fromMap defaults new fields when keys are missing (legacy map)', () {
+      final restored = TrainingSession.fromMap({
+        'id': 'legacy-3',
+        'date': DateTime(2026, 1, 7).toIso8601String(),
+        'durationMinutes': 60,
+        'drills': 'Footwork',
+        'intensity': 4,
+        'notes': 'old row',
+        'photoPath': null,
+      });
+
+      expect(restored.sessionGoal, '');
+      expect(restored.goalAchievementScore, 3);
+      expect(restored.playerRemarks, '');
+      expect(restored.coachRemarks, '');
+      expect(restored.reflectionAnswersJson, '[]');
+      expect(restored.intensity, 4);
+    });
+
+    test('goal and reflection fields survive toMap/fromMap round-trip', () {
+      final session = TrainingSession(
+        id: 'session-7',
+        date: DateTime(2026, 7, 14),
+        durationMinutes: 75,
+        drills: const ['Net Play'],
+        sessionGoal: 'Sharper net kills',
+        goalAchievementScore: 4,
+        playerRemarks: 'Kills felt crisp',
+        coachRemarks: 'Watch the recovery step',
+        reflectionAnswersJson:
+            '[{"questionKey":"Why did you set this goal for today?","answer":"Coach picked it"}]',
+      );
+
+      final restored = TrainingSession.fromMap(session.toMap());
+
+      expect(restored.sessionGoal, 'Sharper net kills');
+      expect(restored.goalAchievementScore, 4);
+      expect(restored.playerRemarks, 'Kills felt crisp');
+      expect(restored.coachRemarks, 'Watch the recovery step');
+      expect(restored.reflectionAnswersJson, session.reflectionAnswersJson);
+    });
+
+    test('null intensity survives the round-trip', () {
+      final session = TrainingSession(
+        id: 'session-8',
+        date: DateTime(2026, 7, 15),
+        durationMinutes: 60,
+        drills: const ['Smash'],
+        sessionGoal: 'Steeper smashes',
+      );
+
+      expect(session.intensity, isNull);
+      expect(TrainingSession.fromMap(session.toMap()).intensity, isNull);
+    });
+
+    test('copyWith replaces each new field independently', () {
+      final base = TrainingSession(
+        id: 'session-9',
+        date: DateTime(2026, 7, 16),
+        durationMinutes: 60,
+        drills: const ['Clear'],
+      );
+
+      expect(base.copyWith(sessionGoal: 'g').sessionGoal, 'g');
+      expect(base.copyWith(goalAchievementScore: 5).goalAchievementScore, 5);
+      expect(base.copyWith(playerRemarks: 'p').playerRemarks, 'p');
+      expect(base.copyWith(coachRemarks: 'c').coachRemarks, 'c');
+      expect(
+        base.copyWith(reflectionAnswersJson: '[1]').reflectionAnswersJson,
+        '[1]',
+      );
+      expect(base.copyWith(intensity: 2).intensity, 2);
+      // Untouched fields stay put.
+      final copy = base.copyWith(sessionGoal: 'g');
+      expect(copy.id, base.id);
+      expect(copy.goalAchievementScore, base.goalAchievementScore);
     });
   });
 }
