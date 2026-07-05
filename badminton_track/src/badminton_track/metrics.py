@@ -101,6 +101,8 @@ def detect_episodes(
     nor close an episode (the last known state persists across them). An
     excursion still open when the data ends has no re-entry and is dropped.
     """
+    if df.empty:
+        return []
     dist = distance_to_base(df, base_xy)
     t = df["t"].to_numpy()
 
@@ -130,3 +132,54 @@ def detect_episodes(
                 open_start = None
                 peak_idx = None
     return episodes
+
+
+@dataclass(frozen=True)
+class EpisodeStats:
+    """Aggregates over a session's recovery episodes."""
+
+    count: int
+    mean_latency_s: float
+    median_latency_s: float
+    max_latency_s: float
+    # Positive slope = recovery is getting slower across the session
+    # ("dropped 400 ms after the 5th rally" lives here).
+    trend_slope_s_per_episode: float
+
+
+def episode_summary(episodes: list[Episode]) -> EpisodeStats:
+    latencies = np.array([e.recovery_latency_s for e in episodes])
+    if len(latencies) == 0:
+        return EpisodeStats(0, np.nan, np.nan, np.nan, np.nan)
+    slope = (
+        float(np.polyfit(np.arange(len(latencies)), latencies, 1)[0])
+        if len(latencies) >= 2
+        else np.nan
+    )
+    return EpisodeStats(
+        count=len(latencies),
+        mean_latency_s=float(latencies.mean()),
+        median_latency_s=float(np.median(latencies)),
+        max_latency_s=float(latencies.max()),
+        trend_slope_s_per_episode=slope,
+    )
+
+
+def session_aggregates(df: pd.DataFrame) -> dict:
+    """Whole-session facts: distance covered, duration, detection coverage."""
+    if df.empty:
+        return {
+            "total_distance_m": 0.0,
+            "duration_s": 0.0,
+            "detection_coverage": 0.0,
+        }
+    dx = df["x_m"].diff()
+    dy = df["y_m"].diff()
+    steps = np.hypot(dx, dy)
+    total = float(np.nansum(steps))
+    detected = float((~df["x_m"].isna()).mean())
+    return {
+        "total_distance_m": total,
+        "duration_s": float(df["t"].iloc[-1] - df["t"].iloc[0]),
+        "detection_coverage": detected,
+    }
