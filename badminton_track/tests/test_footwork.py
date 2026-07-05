@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import pytest
 
 from badminton_track import calibrate, court, footwork, metrics
 from badminton_track.config import FootworkConfig
@@ -66,7 +67,9 @@ def test_lock_survives_brief_disappearance_within_grace():
     df = footwork.lock_target(frames, IDENTITY_CALIB, CFG)
 
     assert np.isnan(df["x_m"].iloc[1])
-    assert df["x_m"].iloc[2] == 3.5, "lock must survive a brief disappearance"
+    assert df["x_m"].iloc[2] == pytest.approx(3.5), (
+        "lock must survive a brief disappearance"
+    )
 
 
 def test_lock_switches_after_sustained_absence():
@@ -81,8 +84,10 @@ def test_lock_switches_after_sustained_absence():
 
     df = footwork.lock_target(frames, IDENTITY_CALIB, CFG)
 
-    assert df["x_m"].iloc[3] == 2.0, "must relock onto the new near-half id"
-    assert df["x_m"].iloc[4] == 2.1
+    assert df["x_m"].iloc[3] == pytest.approx(2.0), (
+        "must relock onto the new near-half id"
+    )
+    assert df["x_m"].iloc[4] == pytest.approx(2.1)
 
 
 def test_missing_frames_become_nan_rows():

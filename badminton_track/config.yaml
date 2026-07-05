@@ -7,6 +7,8 @@ footwork:
   base_point_m: [3.05, 8.68]      # near-half T; real base is slightly behind it
   base_radius_m: 1.0
   max_gap_s: 0.5                  # interpolate detection gaps shorter than this
+  lock_warmup_s: 2.0              # near-half scoring window to pick the player
+  lock_grace_s: 1.0               # locked id may vanish this long before relock
   data_dir: data
 
 biomech:

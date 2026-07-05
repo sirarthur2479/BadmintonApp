@@ -24,6 +24,10 @@ class FootworkConfig(_StrictModel):
     base_point_m: tuple[float, float] = (3.05, 8.68)
     base_radius_m: float = 1.0
     max_gap_s: float = 0.5
+    # Target-player lock: initial near-half scoring window, and how long the
+    # locked id may vanish before another near-half track can take over.
+    lock_warmup_s: float = 2.0
+    lock_grace_s: float = 1.0
     data_dir: Path = Path("data")
 
 
