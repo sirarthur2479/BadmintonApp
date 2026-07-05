@@ -69,12 +69,13 @@ class SessionProvider extends ChangeNotifier {
       _sessions.isEmpty ? null : _sessions.first;
 
   /// Returns a map of week-start date → session count, for the last [weeks] weeks.
-  Map<DateTime, int> sessionsPerWeek({int weeks = 8}) {
-    final now = DateTime.now();
+  Map<DateTime, int> sessionsPerWeek({int weeks = 8, DateTime? now}) {
+    final effectiveNow = now ?? DateTime.now();
     final result = <DateTime, int>{};
     for (int i = weeks - 1; i >= 0; i--) {
-      final weekStart = DateTime(now.year, now.month, now.day)
-          .subtract(Duration(days: now.weekday - 1 + 7 * i));
+      final weekStart = DateTime(
+              effectiveNow.year, effectiveNow.month, effectiveNow.day)
+          .subtract(Duration(days: effectiveNow.weekday - 1 + 7 * i));
       final weekEnd = weekStart.add(const Duration(days: 7));
       final count = _sessions
           .where((s) =>
@@ -86,12 +87,13 @@ class SessionProvider extends ChangeNotifier {
   }
 
   /// Returns average intensity per week for the last [weeks] weeks.
-  Map<DateTime, double> avgIntensityPerWeek({int weeks = 8}) {
-    final now = DateTime.now();
+  Map<DateTime, double> avgIntensityPerWeek({int weeks = 8, DateTime? now}) {
+    final effectiveNow = now ?? DateTime.now();
     final result = <DateTime, double>{};
     for (int i = weeks - 1; i >= 0; i--) {
-      final weekStart = DateTime(now.year, now.month, now.day)
-          .subtract(Duration(days: now.weekday - 1 + 7 * i));
+      final weekStart = DateTime(
+              effectiveNow.year, effectiveNow.month, effectiveNow.day)
+          .subtract(Duration(days: effectiveNow.weekday - 1 + 7 * i));
       final weekEnd = weekStart.add(const Duration(days: 7));
       final week = _sessions
           .where((s) =>
