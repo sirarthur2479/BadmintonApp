@@ -30,8 +30,10 @@ void main() {
     DatabaseService.dbName = 'log_session_screen_test.db';
   });
 
-  Future<SessionProvider> seed(WidgetTester tester,
-      {bool insertExisting = false}) async {
+  Future<SessionProvider> seed(
+    WidgetTester tester, {
+    bool insertExisting = false,
+  }) async {
     final provider = SessionProvider();
     await tester.runAsync(() async {
       await DatabaseService.resetForTests();
@@ -41,8 +43,9 @@ void main() {
     return provider;
   }
 
-  testWidgets('create mode keeps Log Session title and Save Session button',
-      (tester) async {
+  testWidgets('create mode keeps Log Session title and Save Session button', (
+    tester,
+  ) async {
     final provider = await seed(tester);
 
     await tester.pumpWidget(_app(provider));
@@ -52,8 +55,9 @@ void main() {
     expect(find.text('Update Session', skipOffstage: false), findsNothing);
   });
 
-  testWidgets('edit mode pre-fills date, duration, drills, and notes',
-      (tester) async {
+  testWidgets('edit mode pre-fills date, duration, drills, and notes', (
+    tester,
+  ) async {
     final provider = await seed(tester, insertExisting: true);
 
     await tester.pumpWidget(_app(provider, session: _existing));
@@ -62,13 +66,15 @@ void main() {
     expect(find.text('90 min', skipOffstage: false), findsWidgets);
     expect(find.text('existing notes', skipOffstage: false), findsOneWidget);
 
-    final footworkChip =
-        tester.widget<FilterChip>(find.widgetWithText(FilterChip, 'Footwork'));
+    final footworkChip = tester.widget<FilterChip>(
+      find.widgetWithText(FilterChip, 'Footwork'),
+    );
     expect(footworkChip.selected, isTrue);
   });
 
-  testWidgets('edit mode shows Edit Session title and Update Session button',
-      (tester) async {
+  testWidgets('edit mode shows Edit Session title and Update Session button', (
+    tester,
+  ) async {
     final provider = await seed(tester);
 
     await tester.pumpWidget(_app(provider, session: _existing));
@@ -78,20 +84,26 @@ void main() {
     expect(find.text('Save Session', skipOffstage: false), findsNothing);
   });
 
-  testWidgets('edit mode pre-selects a drill that is not in kDrillTypes',
-      (tester) async {
+  testWidgets('edit mode pre-selects a drill that is not in kDrillTypes', (
+    tester,
+  ) async {
     final provider = await seed(tester);
 
     await tester.pumpWidget(_app(provider, session: _existing));
 
     final shadowChip = tester.widget<FilterChip>(
-        find.widgetWithText(FilterChip, 'Shadow Drill'));
-    expect(shadowChip.selected, isTrue,
-        reason: 'legacy/custom drills must not be dropped in edit mode');
+      find.widgetWithText(FilterChip, 'Shadow Drill'),
+    );
+    expect(
+      shadowChip.selected,
+      isTrue,
+      reason: 'legacy/custom drills must not be dropped in edit mode',
+    );
   });
 
-  testWidgets('updating a session keeps its id and does not add a new one',
-      (tester) async {
+  testWidgets('updating a session keeps its id and does not add a new one', (
+    tester,
+  ) async {
     final provider = await seed(tester, insertExisting: true);
 
     await tester.pumpWidget(_app(provider, session: _existing));
@@ -99,7 +111,9 @@ void main() {
     await tester.drag(find.byType(ListView), const Offset(0, -1000));
     await tester.pump();
     await tester.enterText(
-        find.widgetWithText(TextField, 'existing notes'), 'edited notes');
+      find.widgetWithText(TextField, 'existing notes'),
+      'edited notes',
+    );
     // Real-async window so the DB update (ffi isolate) can complete; no
     // pumpAndSettle — the saving spinner would keep it from settling.
     await tester.runAsync(() async {
@@ -109,8 +123,11 @@ void main() {
     });
     await tester.pump();
 
-    expect(provider.sessions, hasLength(1),
-        reason: 'update must not duplicate the session');
+    expect(
+      provider.sessions,
+      hasLength(1),
+      reason: 'update must not duplicate the session',
+    );
     expect(provider.sessions.single.id, 'edit-me');
     expect(provider.sessions.single.notes, 'edited notes');
   });

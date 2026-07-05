@@ -70,7 +70,10 @@ class _LogSessionScreenState extends State<LogSessionScreen> {
 
   Future<void> _pickPhoto() async {
     final picker = ImagePicker();
-    final file = await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+    final file = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 80,
+    );
     if (file != null) setState(() => _photoPath = file.path);
   }
 
@@ -134,7 +137,11 @@ class _LogSessionScreenState extends State<LogSessionScreen> {
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.calendar_today, color: AppTheme.primary),
             title: Text(DateFormat('EEE, d MMM yyyy').format(_date)),
-            trailing: const Icon(Icons.edit, size: 18, color: AppTheme.textSecondary),
+            trailing: const Icon(
+              Icons.edit,
+              size: 18,
+              color: AppTheme.textSecondary,
+            ),
             onTap: _pickDate,
           ),
           const Divider(),
@@ -198,7 +205,10 @@ class _LogSessionScreenState extends State<LogSessionScreen> {
           _SectionLabel('Intensity'),
           Row(
             children: [
-              const Text('Easy', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+              const Text(
+                'Easy',
+                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+              ),
               Expanded(
                 child: Slider(
                   value: _intensity.toDouble(),
@@ -210,7 +220,10 @@ class _LogSessionScreenState extends State<LogSessionScreen> {
                   onChanged: (v) => setState(() => _intensity = v.round()),
                 ),
               ),
-              const Text('Hard', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+              const Text(
+                'Hard',
+                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+              ),
             ],
           ),
           const Divider(),
@@ -234,13 +247,22 @@ class _LogSessionScreenState extends State<LogSessionScreen> {
                 onPressed: _pickPhoto,
                 icon: const Icon(Icons.photo_camera_outlined),
                 label: Text(_photoPath == null ? 'Add Photo' : 'Change Photo'),
-                style: OutlinedButton.styleFrom(foregroundColor: AppTheme.primary),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppTheme.primary,
+                ),
               ),
               if (_photoPath != null) ...[
                 const SizedBox(width: 8),
-                const Icon(Icons.check_circle, color: AppTheme.primary, size: 20),
+                const Icon(
+                  Icons.check_circle,
+                  color: AppTheme.primary,
+                  size: 20,
+                ),
                 const SizedBox(width: 4),
-                const Text('Photo added', style: TextStyle(fontSize: 12, color: AppTheme.primary)),
+                const Text(
+                  'Photo added',
+                  style: TextStyle(fontSize: 12, color: AppTheme.primary),
+                ),
               ],
             ],
           ),
@@ -254,7 +276,9 @@ class _LogSessionScreenState extends State<LogSessionScreen> {
                     width: 20,
                     height: 20,
                     child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Colors.white),
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
                   )
                 : Text(_isEditing ? 'Update Session' : 'Save Session'),
           ),

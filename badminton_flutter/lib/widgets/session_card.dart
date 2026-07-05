@@ -8,9 +8,15 @@ import '../theme/app_theme.dart';
 
 class SessionCard extends StatelessWidget {
   final TrainingSession session;
+  final VoidCallback? onEdit;
   final VoidCallback? onDelete;
 
-  const SessionCard({super.key, required this.session, this.onDelete});
+  const SessionCard({
+    super.key,
+    required this.session,
+    this.onEdit,
+    this.onDelete,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -30,6 +36,17 @@ class SessionCard extends StatelessWidget {
                 ),
                 if (session.intensity != null)
                   _IntensityDots(intensity: session.intensity!),
+                if (onEdit != null) ...[
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: onEdit,
+                    child: const Icon(
+                      Icons.edit_outlined,
+                      size: 20,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                ],
                 if (onDelete != null) ...[
                   const SizedBox(width: 8),
                   GestureDetector(

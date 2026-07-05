@@ -20,17 +20,22 @@ void main() {
     expect(find.byIcon(Icons.edit_outlined), findsNothing);
 
     await tester.pumpWidget(
-        _app(SessionCard(session: _session, onEdit: () {})));
+      _app(SessionCard(session: _session, onEdit: () {})),
+    );
     expect(find.byIcon(Icons.edit_outlined), findsOneWidget);
   });
 
   testWidgets('tapping the edit icon invokes onEdit', (tester) async {
     var edited = false;
-    await tester.pumpWidget(_app(SessionCard(
-      session: _session,
-      onEdit: () => edited = true,
-      onDelete: () {},
-    )));
+    await tester.pumpWidget(
+      _app(
+        SessionCard(
+          session: _session,
+          onEdit: () => edited = true,
+          onDelete: () {},
+        ),
+      ),
+    );
 
     await tester.tap(find.byIcon(Icons.edit_outlined));
 
@@ -38,11 +43,9 @@ void main() {
   });
 
   testWidgets('edit and delete icons coexist on the card', (tester) async {
-    await tester.pumpWidget(_app(SessionCard(
-      session: _session,
-      onEdit: () {},
-      onDelete: () {},
-    )));
+    await tester.pumpWidget(
+      _app(SessionCard(session: _session, onEdit: () {}, onDelete: () {})),
+    );
 
     expect(find.byIcon(Icons.edit_outlined), findsOneWidget);
     expect(find.byIcon(Icons.delete_outline), findsOneWidget);

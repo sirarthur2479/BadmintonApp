@@ -20,7 +20,11 @@ class SessionHistoryScreen extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.fitness_center, size: 56, color: AppTheme.textSecondary),
+                  Icon(
+                    Icons.fitness_center,
+                    size: 56,
+                    color: AppTheme.textSecondary,
+                  ),
                   SizedBox(height: 12),
                   Text(
                     'No sessions yet.\nStart logging your training!',
@@ -58,8 +62,10 @@ class SessionHistoryScreen extends StatelessWidget {
                         ),
                         TextButton(
                           onPressed: () => Navigator.pop(ctx, true),
-                          child: const Text('Delete',
-                              style: TextStyle(color: Colors.red)),
+                          child: const Text(
+                            'Delete',
+                            style: TextStyle(color: Colors.red),
+                          ),
                         ),
                       ],
                     ),
@@ -68,6 +74,12 @@ class SessionHistoryScreen extends StatelessWidget {
                 onDismissed: (_) => provider.deleteSession(session.id),
                 child: SessionCard(
                   session: session,
+                  onEdit: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => LogSessionScreen(session: session),
+                    ),
+                  ),
                   onDelete: () async {
                     final confirm = await showDialog<bool>(
                       context: context,
@@ -81,8 +93,10 @@ class SessionHistoryScreen extends StatelessWidget {
                           ),
                           TextButton(
                             onPressed: () => Navigator.pop(ctx, true),
-                            child: const Text('Delete',
-                                style: TextStyle(color: Colors.red)),
+                            child: const Text(
+                              'Delete',
+                              style: TextStyle(color: Colors.red),
+                            ),
                           ),
                         ],
                       ),
