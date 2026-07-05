@@ -269,6 +269,38 @@ void main() {
     });
   });
 
+  group('single-session share', () {
+    testWidgets('edit mode shows a share action in the app bar',
+        (tester) async {
+      final provider = await seed(tester);
+
+      await _pumpTall(tester, provider, session: _existing);
+
+      expect(
+        find.descendant(
+          of: find.byType(AppBar),
+          matching: find.byIcon(Icons.ios_share),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('create mode has no share action', (tester) async {
+      final provider = await seed(tester);
+
+      await _pumpTall(tester, provider);
+
+      expect(
+        find.descendant(
+          of: find.byType(AppBar),
+          matching: find.byIcon(Icons.ios_share),
+        ),
+        findsNothing,
+        reason: 'nothing to share before the session exists',
+      );
+    });
+  });
+
   group('custom drill tags', () {
     testWidgets('New tag chip opens a dialog and adds a selectable chip', (
       tester,
