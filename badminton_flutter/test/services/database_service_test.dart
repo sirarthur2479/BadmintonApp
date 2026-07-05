@@ -53,6 +53,68 @@ void main() {
         reason: 'matches must cascade-delete with their tournament');
   });
 
+  test('updateSession persists modified goal, drills, and reflection fields',
+      () async {
+    final original = TrainingSession(
+      id: 'update-me',
+      date: DateTime(2026, 7, 2),
+      durationMinutes: 60,
+      drills: const ['Footwork'],
+      sessionGoal: 'Original goal',
+      goalAchievementScore: 2,
+    );
+    await DatabaseService.insertSession(original);
+
+    final edited = original.copyWith(
+      date: DateTime(2026, 7, 3),
+      durationMinutes: 90,
+      drills: const ['Footwork', 'Smash, steep angle'],
+      sessionGoal: 'Edited goal',
+      goalAchievementScore: 5,
+      playerRemarks: 'Felt strong',
+      coachRemarks: 'Better base position',
+      reflectionAnswersJson:
+          '[{"questionKey":"Why did you set this goal for today?","answer":"edit"}]',
+      notes: 'edited notes',
+    );
+    await DatabaseService.updateSession(edited);
+
+    final loaded = (await DatabaseService.getSessions()).single;
+    expect(loaded.id, 'update-me');
+    expect(loaded.date, DateTime(2026, 7, 3));
+    expect(loaded.durationMinutes, 90);
+    expect(loaded.drills, ['Footwork', 'Smash, steep angle']);
+    expect(loaded.sessionGoal, 'Edited goal');
+    expect(loaded.goalAchievementScore, 5);
+    expect(loaded.playerRemarks, 'Felt strong');
+    expect(loaded.coachRemarks, 'Better base position');
+    expect(loaded.reflectionAnswersJson, edited.reflectionAnswersJson);
+    expect(loaded.notes, 'edited notes');
+  });
+
+  test('updateSession leaves other sessions untouched', () async {
+    final a = TrainingSession(
+      id: 'session-a',
+      date: DateTime(2026, 7, 1),
+      durationMinutes: 30,
+      drills: const ['Serve'],
+    );
+    final b = TrainingSession(
+      id: 'session-b',
+      date: DateTime(2026, 7, 2),
+      durationMinutes: 45,
+      drills: const ['Clear'],
+    );
+    await DatabaseService.insertSessions([a, b]);
+
+    await DatabaseService.updateSession(a.copyWith(sessionGoal: 'changed'));
+
+    final loaded = await DatabaseService.getSessions();
+    expect(loaded.singleWhere((s) => s.id == 'session-a').sessionGoal,
+        'changed');
+    expect(loaded.singleWhere((s) => s.id == 'session-b').sessionGoal, '');
+  });
+
   test('insertSessions then getSessions round-trips', () async {
     final session = TrainingSession(
       id: const Uuid().v4(),
