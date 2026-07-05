@@ -1,6 +1,6 @@
 # Use case: BadmintonTrack-12
 
-**Status:** in progress
+**Status:** planned (TASK-014 → TASK-020)
 **Created:** 2026-07-05
 **Owner idea:** CV + local-LLM analysis of training/match footage of a 12-year-old
 regional-level badminton player.
@@ -117,10 +117,11 @@ As specced: click the 4 court corners in a paused frame, build a homography with
   per-episode recovery latencies + trend, angle mins/maxes per rep, flagged
   anomalies (each pre-worded as a plain-English fact).
 - Ollama chat API via the `ollama` Python package (skip LiteLLM unless a second
-  backend is actually needed — fewer deps). Default model `llama3.1:8b`
-  (`llama-3-8b` in the original prompt is not a current Ollama tag);
-  `qwen2.5:7b` as a documented alternative. Fail gracefully with the metrics
-  report intact if Ollama isn't running.
+  backend is actually needed — fewer deps). Default model `qwen3:8b` with
+  `think=False`; `gemma3:4b` as the documented 8 GB-Mac fallback (per
+  `research/local-llm.md` 2026-07-05 — the originally specced `llama3.1:8b` and
+  `qwen2.5:7b` are two generations old). Fail gracefully with the metrics
+  report intact if Ollama isn't running; refuse `-cloud` model tags.
 - Persona guardrails beyond "encouraging coach": growth-mindset framing, no
   body commentary, injury-safety wording for joint-angle findings
   ("check this with your coach before changing technique"), 2–3 concrete drills
