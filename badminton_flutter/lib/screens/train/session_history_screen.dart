@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../providers/session_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/session_card.dart';
+import '../export_screen.dart';
 import 'log_session_screen.dart';
 
 class SessionHistoryScreen extends StatelessWidget {
@@ -11,7 +12,19 @@ class SessionHistoryScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Training History')),
+      appBar: AppBar(
+        title: const Text('Training History'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.ios_share),
+            tooltip: 'Export as Markdown',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ExportScreen()),
+            ),
+          ),
+        ],
+      ),
       body: Consumer<SessionProvider>(
         builder: (context, provider, _) {
           final sessions = provider.sessions;
