@@ -15,6 +15,10 @@ biomech:
   model_asset_path: pose_landmarker_full.task
   butter_cutoff_hz: 6.0           # zero-phase Butterworth, fs = effective rate
   visibility_threshold: 0.5
+  camera_side: right              # side of the player facing the camera
+  oblique_z_spread_threshold: 0.15
+  data_dir: data
+  windows: []                     # e.g. {name: smash-1, start_s: 3.0, end_s: 4.5, angle: smash_extension}
 
 coach:
   model_tag: qwen3:8b             # call with think=False

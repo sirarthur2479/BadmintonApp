@@ -19,12 +19,12 @@ import pandas as pd
 
 from . import calibrate, court
 from .config import FootworkConfig
+from .errors import ExtrasMissingError
+
+__all__ = ["ExtrasMissingError", "Frame", "RawTrack", "iter_tracks",
+           "lock_target", "run_footwork"]
 
 Frame = tuple[float, list["RawTrack"]]
-
-
-class ExtrasMissingError(Exception):
-    """A pipeline extra is not installed; message carries the pip command."""
 
 
 @dataclass(frozen=True)

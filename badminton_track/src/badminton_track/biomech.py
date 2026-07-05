@@ -10,10 +10,16 @@ MediaPipe is confined to `iter_pose_frames` (Tasks `PoseLandmarker` API only
 """
 
 from dataclasses import dataclass
-from typing import Literal
+from pathlib import Path
+from typing import TYPE_CHECKING, Iterator, Literal
 
 import numpy as np
 import pandas as pd
+
+from .errors import ExtrasMissingError
+
+if TYPE_CHECKING:  # avoid a runtime config<->biomech import cycle
+    from .config import BiomechConfig
 
 # MediaPipe 33-landmark BlazePose topology, per camera side.
 LANDMARKS: dict[str, dict[str, tuple[int, int, int]]] = {
@@ -140,3 +146,119 @@ def oblique_view_warning(
         f"{median_spread:.2f} > {threshold:.2f}) — 2D angles are unreliable; "
         f"re-film with the camera parallel to the movement"
     )
+
+
+def iter_pose_frames(video_path: Path, cfg: "BiomechConfig") -> Iterator[PoseFrame]:
+    """PoseLandmarker over EVERY frame (no striding — swings are ~150 ms).
+
+    The only mediapipe import in the codebase, and it is the Tasks API:
+    the legacy `mp.solutions.pose` no longer ships in the wheel.
+    """
+    try:
+        import mediapipe as mp
+        from mediapipe.tasks.python import BaseOptions, vision
+    except ImportError as exc:
+        raise ExtrasMissingError(
+            "the biomech pipeline needs mediapipe — "
+            'install with: pip install "badminton-track[biomech]"'
+        ) from exc
+    import cv2
+
+    options = vision.PoseLandmarkerOptions(
+        base_options=BaseOptions(model_asset_path=str(cfg.model_asset_path)),
+        running_mode=vision.RunningMode.VIDEO,
+        num_poses=1,
+    )
+    landmarker = vision.PoseLandmarker.create_from_options(options)
+    cap = cv2.VideoCapture(str(video_path))
+    fps = cap.get(cv2.CAP_PROP_FPS) or 60.0
+    frame_idx = 0
+    try:
+        while True:
+            ok, frame = cap.read()
+            if not ok:
+                break
+            image = mp.Image(
+                image_format=mp.ImageFormat.SRGB,
+                data=cv2.cvtColor(frame, cv2.COLOR_BGR2RGB),
+            )
+            result = landmarker.detect_for_video(
+                image, int(frame_idx / fps * 1000)
+            )
+            t = frame_idx / fps
+            if result.pose_landmarks:
+                lms = result.pose_landmarks[0]
+                landmarks = np.array(
+                    [[lm.x, lm.y, lm.z, lm.visibility] for lm in lms]
+                )
+                world = None
+                if result.pose_world_landmarks:
+                    world = np.array(
+                        [
+                            [lm.x, lm.y, lm.z, lm.visibility]
+                            for lm in result.pose_world_landmarks[0]
+                        ]
+                    )
+                yield PoseFrame(t=t, landmarks=landmarks, world_landmarks=world)
+            else:
+                yield PoseFrame(t=t, landmarks=None)
+            frame_idx += 1
+    finally:
+        cap.release()
+
+
+def _effective_fs(frames: list[PoseFrame]) -> float:
+    """Sample rate from the timestamps themselves (the filter needs truth)."""
+    if len(frames) < 2:
+        return 60.0
+    dts = np.diff([f.t for f in frames])
+    return float(1.0 / np.median(dts))
+
+
+def run_biomech(video_path: Path, cfg: "BiomechConfig") -> pd.DataFrame:
+    """Per-window angle telemetry + summary for one side-view clip.
+
+    Writes a long-format CSV (window, t, angle_deg raw, angle_smooth_deg) to
+    data_dir and returns one summary row per configured window. Min/max come
+    from the RAW series — smoothing exists for trend reading, and a real
+    peak must not be flattened out of the summary.
+    """
+    frames = list(iter_pose_frames(video_path, cfg))
+    fs = _effective_fs(frames)
+
+    csv_rows: list[pd.DataFrame] = []
+    summary_rows: list[dict] = []
+    for window in cfg.windows:
+        triplet = LANDMARKS[cfg.camera_side][window.angle]
+        window_frames = [f for f in frames if window.start_s <= f.t <= window.end_s]
+        series = angle_series(window_frames, triplet, cfg.visibility_threshold)
+        smooth = smooth_series(
+            series["angle_deg"].to_numpy(), fs=fs, cutoff_hz=cfg.butter_cutoff_hz
+        )
+        warning = oblique_view_warning(
+            window_frames, triplet, cfg.oblique_z_spread_threshold
+        )
+        raw = series["angle_deg"]
+        summary_rows.append(
+            {
+                "window": window.name,
+                "angle": window.angle,
+                "n_samples": int(raw.notna().sum()),
+                "min_deg": float(raw.min()),
+                "max_deg": float(raw.max()),
+                "warning": warning or "",
+            }
+        )
+        csv_rows.append(
+            series.assign(window=window.name, angle_smooth_deg=smooth)
+        )
+
+    out_dir = Path(cfg.data_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    telemetry = (
+        pd.concat(csv_rows, ignore_index=True)
+        if csv_rows
+        else pd.DataFrame(columns=["t", "angle_deg", "window", "angle_smooth_deg"])
+    )
+    telemetry.to_csv(out_dir / f"{Path(video_path).stem}-biomech.csv", index=False)
+    return pd.DataFrame(summary_rows)

@@ -14,8 +14,9 @@ import math
 import sys
 from pathlib import Path
 
-from . import calibrate, courtmap, footwork, metrics
+from . import biomech, calibrate, courtmap, footwork, metrics
 from .config import TrackConfig, load_config
+from .errors import ExtrasMissingError
 
 OUTPUT_DIR = Path("output")
 
@@ -35,7 +36,11 @@ def build_parser() -> argparse.ArgumentParser:
     ana = sub.add_parser("analyze", help="run a pipeline over one video")
     ana.add_argument("video", type=Path)
     ana.add_argument("--mode", choices=["footwork", "biomech"], required=True)
-    ana.add_argument("--calibration", required=True, help="camera-setup name")
+    ana.add_argument(
+        "--calibration",
+        default=None,
+        help="camera-setup name (required for footwork mode)",
+    )
     return parser
 
 
@@ -79,6 +84,13 @@ def _cmd_calibrate(args: argparse.Namespace, cfg: TrackConfig) -> int:
 
 
 def _cmd_analyze_footwork(args: argparse.Namespace, cfg: TrackConfig) -> int:
+    if args.calibration is None:
+        print(
+            "footwork mode needs --calibration <setup-name> "
+            "(create one with: badminton-track calibrate <video> --name <setup-name>)",
+            file=sys.stderr,
+        )
+        return 2
     calib_path = _calibration_path(cfg, args.calibration)
     if not calib_path.exists():
         print(
@@ -116,6 +128,20 @@ def _cmd_analyze_footwork(args: argparse.Namespace, cfg: TrackConfig) -> int:
     return 0
 
 
+def _cmd_analyze_biomech(args: argparse.Namespace, cfg: TrackConfig) -> int:
+    summary = biomech.run_biomech(args.video, cfg.biomech)
+    stem = args.video.stem
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    payload = _nan_safe({"windows": summary.to_dict(orient="records")})
+    (OUTPUT_DIR / f"{stem}-biomech-summary.json").write_text(
+        json.dumps(payload, indent=2)
+    )
+    print(
+        f"biomech analysis done: {len(summary)} windows, outputs under {OUTPUT_DIR}/"
+    )
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     cfg = load_config(args.config)
@@ -123,13 +149,9 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "calibrate":
             return _cmd_calibrate(args, cfg)
         if args.mode == "biomech":
-            print(
-                "biomech mode arrives in TASK-019 — only footwork works today",
-                file=sys.stderr,
-            )
-            return 2
+            return _cmd_analyze_biomech(args, cfg)
         return _cmd_analyze_footwork(args, cfg)
-    except footwork.ExtrasMissingError as exc:
+    except ExtrasMissingError as exc:
         print(str(exc), file=sys.stderr)
         return 2
 

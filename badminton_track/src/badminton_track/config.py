@@ -6,9 +6,12 @@ fail loudly instead of silently running with defaults.
 """
 
 from pathlib import Path
+from typing import Literal
 
 import yaml
 from pydantic import BaseModel, ConfigDict
+
+from .biomech import AnalysisWindow
 
 
 class _StrictModel(BaseModel):
@@ -35,6 +38,12 @@ class BiomechConfig(_StrictModel):
     model_asset_path: Path = Path("pose_landmarker_full.task")
     butter_cutoff_hz: float = 6.0
     visibility_threshold: float = 0.5
+    # Which side of the player faces the camera (picks landmark indices).
+    camera_side: Literal["right", "left"] = "right"
+    oblique_z_spread_threshold: float = 0.15
+    # Manually-defined analysis windows (MVP: trimmed by hand per clip).
+    windows: list[AnalysisWindow] = []
+    data_dir: Path = Path("data")
 
 
 class CoachConfig(_StrictModel):
