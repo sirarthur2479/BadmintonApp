@@ -18,32 +18,31 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   final _nameCtrl = TextEditingController();
   final _clubCtrl = TextEditingController();
+  final _ageCtrl = TextEditingController();
+  final _yearsCtrl = TextEditingController();
   final _shortGoalCtrl = TextEditingController();
   final _longGoalCtrl = TextEditingController();
-  int? _age;
-  int? _yearsPlaying;
   String _playingStyle = 'all-round';
   String _preferredGrip = 'forehand';
   String? _photoPath;
   bool _editing = false;
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _loadFromProvider();
-  }
+  // The profile instance the form currently mirrors. The profile loads
+  // async after this screen mounts, so build() re-syncs whenever the
+  // provider exposes a new instance — but never while the user is editing.
+  PlayerProfile? _syncedProfile;
 
-  void _loadFromProvider() {
-    final profile = context.read<ProfileProvider>().profile;
+  void _syncControllers(PlayerProfile profile) {
     _nameCtrl.text = profile.name;
     _clubCtrl.text = profile.club;
+    _ageCtrl.text = profile.age?.toString() ?? '';
+    _yearsCtrl.text = profile.yearsPlaying?.toString() ?? '';
     _shortGoalCtrl.text = profile.shortTermGoal;
     _longGoalCtrl.text = profile.longTermGoal;
-    _age = profile.age;
-    _yearsPlaying = profile.yearsPlaying;
     _playingStyle = profile.playingStyle;
     _preferredGrip = profile.preferredGrip;
     _photoPath = profile.photoPath;
+    _syncedProfile = profile;
   }
 
   Future<void> _pickPhoto() async {
@@ -56,9 +55,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _save() async {
     final profile = PlayerProfile(
       name: _nameCtrl.text.trim(),
-      age: _age,
+      age: int.tryParse(_ageCtrl.text.trim()),
       club: _clubCtrl.text.trim(),
-      yearsPlaying: _yearsPlaying,
+      yearsPlaying: int.tryParse(_yearsCtrl.text.trim()),
       photoPath: _photoPath,
       playingStyle: _playingStyle,
       preferredGrip: _preferredGrip,
@@ -77,6 +76,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void dispose() {
     _nameCtrl.dispose();
     _clubCtrl.dispose();
+    _ageCtrl.dispose();
+    _yearsCtrl.dispose();
     _shortGoalCtrl.dispose();
     _longGoalCtrl.dispose();
     super.dispose();
@@ -84,6 +85,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final profile = context.watch<ProfileProvider>().profile;
+    if (!_editing && !identical(profile, _syncedProfile)) {
+      _syncControllers(profile);
+    }
     return Scaffold(
       appBar: AppBar(
         title: const Text('Profile'),
@@ -142,15 +147,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
           // Age + Years playing
           Row(
             children: [
-              Expanded(
-                child: _numberField('Age', _age, _editing,
-                    (v) => setState(() => _age = v)),
-              ),
+              Expanded(child: _numberField('Age', _ageCtrl, _editing)),
               const SizedBox(width: 12),
               Expanded(
-                child: _numberField('Years playing', _yearsPlaying, _editing,
-                    (v) => setState(() => _yearsPlaying = v)),
-              ),
+                  child:
+                      _numberField('Years playing', _yearsCtrl, _editing)),
             ],
           ),
           const SizedBox(height: 16),
@@ -213,13 +214,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _numberField(String label, int? value, bool enabled, ValueChanged<int?> onChanged) {
-    return TextFormField(
-      initialValue: value?.toString() ?? '',
+  Widget _numberField(String label, TextEditingController ctrl, bool enabled) {
+    return TextField(
+      controller: ctrl,
       enabled: enabled,
       keyboardType: TextInputType.number,
       decoration: InputDecoration(labelText: label),
-      onChanged: (v) => onChanged(int.tryParse(v)),
     );
   }
 
