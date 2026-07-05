@@ -1,6 +1,6 @@
 # Use case: log-session-part-a
 
-**Status:** planned (TASK-007 → TASK-013)
+**Status:** done (TASK-007 → TASK-013, completed 2026-07-05)
 **Created:** 2026-07-05
 **Source:** `badminton_flutter/docs/log-session-improvement-plan.md` (Parts A, D,
 E — training-session scope only) + `badminton_flutter/docs/codebase-review-2026-07-05.md`

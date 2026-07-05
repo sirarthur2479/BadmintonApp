@@ -46,7 +46,7 @@ this order unless the owner overrides.
 ## 3. Log-session improvement plan (Part A) + comma-safe drills
 
 - **Added:** 2026-07-05
-- **Status:** in progress (TASK-007 → TASK-013, use-case: `ideas/use-cases/log-session-part-a.md`)
+- **Status:** done (TASK-007 → TASK-013, 2026-07-05)
 - **Source:** `badminton_flutter/docs/log-session-improvement-plan.md` (existing
   spec) + review §2
 - **Summary:** Implement the already-written plan: session editing, goal +
