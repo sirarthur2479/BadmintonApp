@@ -5,7 +5,7 @@
 **Depends on:** TASK-001
 **Effort:** M
 **Risk:** low
-**Status:** in-progress
+**Status:** done
 
 ## Goal
 

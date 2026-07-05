@@ -1,6 +1,6 @@
 # Use case: flutter-bug-batch
 
-**Status:** planned (TASK-001 → TASK-004)
+**Status:** done (TASK-001 → TASK-004, completed 2026-07-05)
 **Created:** 2026-07-05
 **Source:** `badminton_flutter/docs/codebase-review-2026-07-05.md` §1 (pool idea #1)
 
