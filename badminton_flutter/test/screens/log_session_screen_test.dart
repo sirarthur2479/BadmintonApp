@@ -3,10 +3,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
+import 'package:badminton_flutter/models/reflection_data.dart';
 import 'package:badminton_flutter/models/session.dart';
 import 'package:badminton_flutter/providers/session_provider.dart';
 import 'package:badminton_flutter/screens/train/log_session_screen.dart';
 import 'package:badminton_flutter/services/database_service.dart';
+import 'package:badminton_flutter/widgets/star_rating.dart';
 
 final _existing = TrainingSession(
   id: 'edit-me',
@@ -15,6 +17,16 @@ final _existing = TrainingSession(
   drills: const ['Footwork', 'Shadow Drill'], // second one is NOT built-in
   intensity: 4,
   notes: 'existing notes',
+  sessionGoal: 'Original goal',
+  goalAchievementScore: 4,
+  playerRemarks: 'net kills were sharp',
+  coachRemarks: 'good recovery steps',
+  reflectionAnswersJson: encodeReflectionAnswers([
+    ReflectionAnswer(
+      questionKey: kReflectionQuestions[0],
+      answer: 'coach picked the goal',
+    ),
+  ]),
 );
 
 Widget _app(SessionProvider provider, {TrainingSession? session}) =>
@@ -23,6 +35,11 @@ Widget _app(SessionProvider provider, {TrainingSession? session}) =>
       child: MaterialApp(home: LogSessionScreen(session: session)),
     );
 
+Future<void> _scrollDown(WidgetTester tester, [double by = 1200]) async {
+  await tester.drag(find.byType(ListView), Offset(0, -by));
+  await tester.pump();
+}
+
 void main() {
   setUpAll(() {
     sqfliteFfiInit();
@@ -30,10 +47,8 @@ void main() {
     DatabaseService.dbName = 'log_session_screen_test.db';
   });
 
-  Future<SessionProvider> seed(
-    WidgetTester tester, {
-    bool insertExisting = false,
-  }) async {
+  Future<SessionProvider> seed(WidgetTester tester,
+      {bool insertExisting = false}) async {
     final provider = SessionProvider();
     await tester.runAsync(() async {
       await DatabaseService.resetForTests();
@@ -43,92 +58,222 @@ void main() {
     return provider;
   }
 
-  testWidgets('create mode keeps Log Session title and Save Session button', (
-    tester,
-  ) async {
-    final provider = await seed(tester);
-
-    await tester.pumpWidget(_app(provider));
-
-    expect(find.text('Log Session'), findsOneWidget);
-    expect(find.text('Save Session', skipOffstage: false), findsOneWidget);
-    expect(find.text('Update Session', skipOffstage: false), findsNothing);
-  });
-
-  testWidgets('edit mode pre-fills date, duration, drills, and notes', (
-    tester,
-  ) async {
-    final provider = await seed(tester, insertExisting: true);
-
-    await tester.pumpWidget(_app(provider, session: _existing));
-
-    expect(find.text('Fri, 3 Jul 2026'), findsOneWidget);
-    expect(find.text('90 min', skipOffstage: false), findsWidgets);
-    expect(find.text('existing notes', skipOffstage: false), findsOneWidget);
-
-    final footworkChip = tester.widget<FilterChip>(
-      find.widgetWithText(FilterChip, 'Footwork'),
-    );
-    expect(footworkChip.selected, isTrue);
-  });
-
-  testWidgets('edit mode shows Edit Session title and Update Session button', (
-    tester,
-  ) async {
-    final provider = await seed(tester);
-
-    await tester.pumpWidget(_app(provider, session: _existing));
-
-    expect(find.text('Edit Session'), findsOneWidget);
-    expect(find.text('Update Session', skipOffstage: false), findsOneWidget);
-    expect(find.text('Save Session', skipOffstage: false), findsNothing);
-  });
-
-  testWidgets('edit mode pre-selects a drill that is not in kDrillTypes', (
-    tester,
-  ) async {
-    final provider = await seed(tester);
-
-    await tester.pumpWidget(_app(provider, session: _existing));
-
-    final shadowChip = tester.widget<FilterChip>(
-      find.widgetWithText(FilterChip, 'Shadow Drill'),
-    );
-    expect(
-      shadowChip.selected,
-      isTrue,
-      reason: 'legacy/custom drills must not be dropped in edit mode',
-    );
-  });
-
-  testWidgets('updating a session keeps its id and does not add a new one', (
-    tester,
-  ) async {
-    final provider = await seed(tester, insertExisting: true);
-
-    await tester.pumpWidget(_app(provider, session: _existing));
-    // Bring the lower half of the form (notes + button) into view.
-    await tester.drag(find.byType(ListView), const Offset(0, -1000));
-    await tester.pump();
-    await tester.enterText(
-      find.widgetWithText(TextField, 'existing notes'),
-      'edited notes',
-    );
-    // Real-async window so the DB update (ffi isolate) can complete; no
-    // pumpAndSettle — the saving spinner would keep it from settling.
+  Future<void> _saveViaButton(WidgetTester tester, String label) async {
     await tester.runAsync(() async {
-      await tester.tap(find.text('Update Session'));
+      await tester.tap(find.text(label, skipOffstage: false));
       await tester.pump();
       await Future<void>.delayed(const Duration(milliseconds: 300));
     });
     await tester.pump();
+  }
 
-    expect(
-      provider.sessions,
-      hasLength(1),
-      reason: 'update must not duplicate the session',
-    );
-    expect(provider.sessions.single.id, 'edit-me');
-    expect(provider.sessions.single.notes, 'edited notes');
+  group('mode chrome', () {
+    testWidgets('create mode keeps Log Session title and Save Session button',
+        (tester) async {
+      final provider = await seed(tester);
+
+      await tester.pumpWidget(_app(provider));
+
+      expect(find.text('Log Session'), findsOneWidget);
+      expect(find.text('Save Session', skipOffstage: false), findsOneWidget);
+      expect(find.text('Update Session', skipOffstage: false), findsNothing);
+    });
+
+    testWidgets(
+        'edit mode shows Edit Session title and Update Session button',
+        (tester) async {
+      final provider = await seed(tester);
+
+      await tester.pumpWidget(_app(provider, session: _existing));
+
+      expect(find.text('Edit Session'), findsOneWidget);
+      expect(find.text('Update Session', skipOffstage: false), findsOneWidget);
+      expect(find.text('Save Session', skipOffstage: false), findsNothing);
+    });
+  });
+
+  group('form layout', () {
+    testWidgets('goal field and reflection sections are present',
+        (tester) async {
+      final provider = await seed(tester);
+
+      await tester.pumpWidget(_app(provider));
+
+      expect(find.byKey(const ValueKey('goalField'), skipOffstage: false),
+          findsOneWidget);
+      expect(find.byKey(const ValueKey('playerRemarks'), skipOffstage: false),
+          findsOneWidget);
+      expect(find.byKey(const ValueKey('coachRemarks'), skipOffstage: false),
+          findsOneWidget);
+      for (var i = 0; i < kReflectionQuestions.length; i++) {
+        expect(find.byKey(ValueKey('reflection-$i'), skipOffstage: false),
+            findsOneWidget,
+            reason: 'question $i must have an answer field');
+      }
+      expect(find.byType(StarRating, skipOffstage: false), findsOneWidget);
+    });
+
+    testWidgets('intensity slider is gone', (tester) async {
+      final provider = await seed(tester);
+
+      await tester.pumpWidget(_app(provider));
+
+      expect(find.text('Intensity', skipOffstage: false), findsNothing);
+    });
+
+    testWidgets('duration lives inside a collapsed Advanced section',
+        (tester) async {
+      final provider = await seed(tester);
+
+      await tester.pumpWidget(_app(provider));
+
+      expect(find.text('Advanced', skipOffstage: false), findsOneWidget);
+      expect(find.byType(Slider, skipOffstage: false), findsNothing,
+          reason: 'duration slider hidden until Advanced is expanded');
+
+      await _scrollDown(tester, 2000);
+      await tester.tap(find.text('Advanced'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(Slider, skipOffstage: false), findsOneWidget);
+    });
+  });
+
+  group('validation', () {
+    testWidgets('save is blocked with a snackbar when the goal is empty',
+        (tester) async {
+      final provider = await seed(tester);
+
+      await tester.pumpWidget(_app(provider));
+      await tester.tap(find.widgetWithText(FilterChip, 'Footwork'));
+      await tester.pump();
+      await _saveViaButton(tester, 'Save Session');
+
+      expect(find.textContaining('goal'), findsWidgets,
+          reason: 'snackbar must say a goal is required');
+      expect(provider.sessions, isEmpty);
+    });
+
+    testWidgets('save is blocked when no drill is selected', (tester) async {
+      final provider = await seed(tester);
+
+      await tester.pumpWidget(_app(provider));
+      await tester.enterText(
+          find.byKey(const ValueKey('goalField')), 'Sharper smashes');
+      await _saveViaButton(tester, 'Save Session');
+
+      expect(find.textContaining('drill'), findsWidgets);
+      expect(provider.sessions, isEmpty);
+    });
+  });
+
+  group('save payload', () {
+    testWidgets(
+        'saved session carries goal, score, remarks, and reflection answers; intensity is null',
+        (tester) async {
+      final provider = await seed(tester);
+
+      await tester.pumpWidget(_app(provider));
+      await tester.enterText(
+          find.byKey(const ValueKey('goalField')), 'Sharper smashes');
+      await tester.tap(find.widgetWithText(FilterChip, 'Smash'));
+      await tester.pump();
+
+      await _scrollDown(tester);
+      await tester.enterText(
+          find.byKey(const ValueKey('reflection-0')), 'coach picked it');
+      await _scrollDown(tester);
+      await tester.enterText(
+          find.byKey(const ValueKey('playerRemarks')), 'felt strong');
+      await tester.enterText(
+          find.byKey(const ValueKey('coachRemarks')), 'watch the base');
+      await _saveViaButton(tester, 'Save Session');
+
+      final saved = provider.sessions.single;
+      expect(saved.sessionGoal, 'Sharper smashes');
+      expect(saved.intensity, isNull,
+          reason: 'new sessions have no intensity rating');
+      expect(saved.playerRemarks, 'felt strong');
+      expect(saved.coachRemarks, 'watch the base');
+      final answers = decodeReflectionAnswers(saved.reflectionAnswersJson);
+      expect(answers, hasLength(1),
+          reason: 'empty answers are skipped, answered ones kept');
+      expect(answers.single.questionKey, kReflectionQuestions[0]);
+      expect(answers.single.answer, 'coach picked it');
+    });
+
+    testWidgets('star tap sets goalAchievementScore on the saved session',
+        (tester) async {
+      final provider = await seed(tester);
+
+      await tester.pumpWidget(_app(provider));
+      await tester.enterText(
+          find.byKey(const ValueKey('goalField')), 'Sharper smashes');
+      await tester.tap(find.widgetWithText(FilterChip, 'Smash'));
+      await tester.pump();
+
+      await _scrollDown(tester);
+      await tester.ensureVisible(find.byType(StarRating));
+      await tester.tap(find.byIcon(Icons.star_border).last);
+      await tester.pump();
+      await _saveViaButton(tester, 'Save Session');
+
+      expect(provider.sessions.single.goalAchievementScore, 5);
+    });
+  });
+
+  group('edit mode', () {
+    testWidgets('pre-fills goal, remarks, reflection answers, and star score',
+        (tester) async {
+      final provider = await seed(tester, insertExisting: true);
+
+      await tester.pumpWidget(_app(provider, session: _existing));
+
+      expect(find.text('Original goal', skipOffstage: false), findsOneWidget);
+      expect(find.text('net kills were sharp', skipOffstage: false),
+          findsOneWidget);
+      expect(find.text('good recovery steps', skipOffstage: false),
+          findsOneWidget);
+      expect(find.text('coach picked the goal', skipOffstage: false),
+          findsOneWidget);
+      final stars = tester.widget<StarRating>(
+          find.byType(StarRating, skipOffstage: false));
+      expect(stars.value, 4);
+    });
+
+    testWidgets('pre-fills date and pre-selects drills incl. non-built-in',
+        (tester) async {
+      final provider = await seed(tester, insertExisting: true);
+
+      await tester.pumpWidget(_app(provider, session: _existing));
+
+      expect(find.text('Fri, 3 Jul 2026'), findsOneWidget);
+      final footworkChip = tester.widget<FilterChip>(
+          find.widgetWithText(FilterChip, 'Footwork'));
+      expect(footworkChip.selected, isTrue);
+      final shadowChip = tester.widget<FilterChip>(
+          find.widgetWithText(FilterChip, 'Shadow Drill'));
+      expect(shadowChip.selected, isTrue,
+          reason: 'legacy/custom drills must not be dropped in edit mode');
+    });
+
+    testWidgets('updating keeps the id, edits the goal, keeps legacy intensity',
+        (tester) async {
+      final provider = await seed(tester, insertExisting: true);
+
+      await tester.pumpWidget(_app(provider, session: _existing));
+      await tester.enterText(
+          find.byKey(const ValueKey('goalField')), 'Edited goal');
+      await tester.pump();
+      await _saveViaButton(tester, 'Update Session');
+
+      expect(provider.sessions, hasLength(1),
+          reason: 'update must not duplicate the session');
+      final updated = provider.sessions.single;
+      expect(updated.id, 'edit-me');
+      expect(updated.sessionGoal, 'Edited goal');
+      expect(updated.intensity, 4,
+          reason: 'legacy intensity is preserved through edits');
+    });
   });
 }
