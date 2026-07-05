@@ -101,6 +101,12 @@ void main() {
     expect(s.reflectionAnswersJson, '[]');
   });
 
+  test('migration creates the custom_tags table', () async {
+    await DatabaseService.insertCustomTag('From v1 upgrade');
+
+    expect(await DatabaseService.getCustomTags(), ['From v1 upgrade']);
+  });
+
   test('migrated database accepts a session with null intensity', () async {
     final session = TrainingSession(
       id: 'post-migration-1',

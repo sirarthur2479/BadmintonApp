@@ -115,6 +115,25 @@ void main() {
     expect(loaded.singleWhere((s) => s.id == 'session-b').sessionGoal, '');
   });
 
+  test('custom tags: insert, list, delete round-trip', () async {
+    await DatabaseService.insertCustomTag('Shadow Footwork');
+    await DatabaseService.insertCustomTag('Multi-feed, front court');
+
+    expect(await DatabaseService.getCustomTags(),
+        ['Multi-feed, front court', 'Shadow Footwork']);
+
+    await DatabaseService.deleteCustomTag('Shadow Footwork');
+    expect(await DatabaseService.getCustomTags(),
+        ['Multi-feed, front court']);
+  });
+
+  test('custom tags: duplicate insert is a no-op', () async {
+    await DatabaseService.insertCustomTag('Deception');
+    await DatabaseService.insertCustomTag('Deception');
+
+    expect(await DatabaseService.getCustomTags(), ['Deception']);
+  });
+
   test('insertSessions then getSessions round-trips', () async {
     final session = TrainingSession(
       id: const Uuid().v4(),
