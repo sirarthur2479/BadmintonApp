@@ -65,6 +65,40 @@ def test_feet_point_is_bbox_bottom_centre():
     np.testing.assert_allclose(calibrate.feet_point(bbox), [200.0, 600.0])
 
 
+def test_calibration_json_round_trip_preserves_h_exactly(tmp_path):
+    px_corners = synthetic_camera_corners()
+    calib = calibrate.Calibration.create(
+        name="garage-rear-tripod",
+        pixel_corners=px_corners,
+        video_size=(1920, 1080),
+    )
+    path = tmp_path / "garage-rear-tripod.json"
+
+    calib.save(path)
+    restored = calibrate.Calibration.load(path)
+
+    assert restored.name == "garage-rear-tripod"
+    assert restored.video_size == (1920, 1080)
+    np.testing.assert_array_equal(restored.pixel_corners, px_corners)
+    np.testing.assert_array_equal(restored.h, calib.h)
+    # The restored homography still projects correctly.
+    np.testing.assert_allclose(
+        calibrate.project_points(restored.h, px_corners),
+        court.corner_points_m(),
+        atol=1e-6,
+    )
+
+
+def test_calibration_create_builds_h_from_corners():
+    calib = calibrate.Calibration.create(
+        name="x", pixel_corners=synthetic_camera_corners(), video_size=(1920, 1080)
+    )
+
+    np.testing.assert_array_equal(
+        calib.h, calibrate.build_homography(synthetic_camera_corners())
+    )
+
+
 def test_project_feet_projects_only_feet_points():
     px_corners = synthetic_camera_corners()
     h = calibrate.build_homography(px_corners)
