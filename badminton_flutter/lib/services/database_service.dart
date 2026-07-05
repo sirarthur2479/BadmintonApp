@@ -161,6 +161,21 @@ class DatabaseService {
     );
   }
 
+  static Future<void> updateSession(TrainingSession session) async {
+    if (kIsWeb) {
+      final idx = _webSessions.indexWhere((s) => s.id == session.id);
+      if (idx >= 0) _webSessions[idx] = session;
+      return;
+    }
+    final db = await _database;
+    await db.update(
+      'sessions',
+      session.toMap(),
+      where: 'id = ?',
+      whereArgs: [session.id],
+    );
+  }
+
   static Future<void> deleteSession(String id) async {
     if (kIsWeb) {
       _webSessions.removeWhere((s) => s.id == id);
