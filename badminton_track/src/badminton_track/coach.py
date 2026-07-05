@@ -5,6 +5,8 @@ are computed here (pandas/numpy) and handed over as a compact summary whose
 anomalies are already worded as plain-English facts. The model only narrates.
 """
 
+import json
+import logging
 import math
 from typing import TYPE_CHECKING
 
@@ -12,9 +14,29 @@ import pandas as pd
 from pydantic import BaseModel, Field
 
 from . import metrics
+from .errors import ExtrasMissingError
 
 if TYPE_CHECKING:
     from .config import CoachConfig
+
+log = logging.getLogger(__name__)
+
+PERSONA_PROMPT = """\
+You are an encouraging badminton coach writing for a 12-year-old player.
+You will receive a JSON summary of measured training facts. Write the report
+following ALL of these rules:
+
+- Growth-mindset framing: praise effort and progress, treat mistakes as
+  information, use "yet" for skills still developing.
+- NEVER comment on the player's body, weight, height, or appearance — only
+  movement and technique.
+- Every finding about a joint angle MUST end its safety_note with:
+  "Check this with your coach before changing your technique."
+- Give 2 or 3 concrete, named drills per finding.
+- Write at a 12-year-old reading level: short sentences, no jargon without a
+  quick explanation.
+- NEVER invent numbers. Only restate figures that appear in the JSON facts.
+"""
 
 
 class Finding(BaseModel):
@@ -112,3 +134,52 @@ def build_summary(
                 )
 
     return summary
+
+
+def generate_coach_report(summary: dict, cfg: "CoachConfig") -> CoachReport | None:
+    """One schema-constrained chat call to the local Ollama server.
+
+    Returns None when the server is down or the model isn't pulled — the
+    caller always writes the deterministic metrics report regardless. Raises
+    ValueError for `-cloud` tags BEFORE any client is built: data about a
+    minor never transits the internet.
+    """
+    if cfg.model_tag.endswith("-cloud"):
+        raise ValueError(
+            f"model tag '{cfg.model_tag}' is an Ollama cloud model — "
+            f"cloud inference is forbidden for this tool"
+        )
+    try:
+        import ollama
+    except ImportError as exc:
+        raise ExtrasMissingError(
+            "the coach narrative needs the ollama package — "
+            'install with: pip install "badminton-track[coach]"'
+        ) from exc
+
+    client = ollama.Client(host=cfg.ollama_host)
+    try:
+        resp = client.chat(
+            model=cfg.model_tag,
+            messages=[
+                {"role": "system", "content": PERSONA_PROMPT},  # stable prefix
+                {"role": "user", "content": json.dumps(summary)},
+            ],
+            format=CoachReport.model_json_schema(),
+            options={"temperature": 0.4, "num_ctx": 8192},
+            think=False,  # qwen3: narration gains nothing from chain-of-thought
+        )
+        return CoachReport.model_validate_json(resp.message.content)
+    except ConnectionError:
+        log.warning("Ollama not running at %s; metrics-only report", cfg.ollama_host)
+        return None
+    except ollama.ResponseError as exc:
+        if getattr(exc, "status_code", None) == 404:
+            log.warning(
+                "model %s not available — run: ollama pull %s",
+                cfg.model_tag,
+                cfg.model_tag,
+            )
+        else:
+            log.warning("Ollama error %s", exc)
+        return None
