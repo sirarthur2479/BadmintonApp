@@ -52,9 +52,7 @@ class _ExportScreenState extends State<ExportScreen> {
     final provider = context.watch<SessionProvider>();
     final endExclusive = _to.add(const Duration(days: 1));
     final inRange = provider.sessions
-        .where(
-          (s) => !s.date.isBefore(_from) && s.date.isBefore(endExclusive),
-        )
+        .where((s) => !s.date.isBefore(_from) && s.date.isBefore(endExclusive))
         .toList();
 
     return Scaffold(
@@ -98,15 +96,15 @@ class _ExportScreenState extends State<ExportScreen> {
             onPressed: inRange.isEmpty
                 ? null
                 : () => SharePlus.instance.share(
-                      ShareParams(
-                        text: ExportService.bulkExport(
-                          sessions: provider.sessions,
-                          from: _from,
-                          to: _to,
-                        ),
-                        subject: 'Training log export',
+                    ShareParams(
+                      text: ExportService.bulkExport(
+                        sessions: provider.sessions,
+                        from: _from,
+                        to: _to,
                       ),
+                      subject: 'Training log export',
                     ),
+                  ),
             icon: const Icon(Icons.ios_share),
             label: const Text('Export as Markdown'),
           ),

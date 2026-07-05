@@ -67,14 +67,18 @@ class ExportService {
     required DateTime to,
   }) {
     final fromDay = DateTime(from.year, from.month, from.day);
-    final endExclusive =
-        DateTime(to.year, to.month, to.day).add(const Duration(days: 1));
-    final inRange = sessions
-        .where(
-          (s) => !s.date.isBefore(fromDay) && s.date.isBefore(endExclusive),
-        )
-        .toList()
-      ..sort((a, b) => a.date.compareTo(b.date));
+    final endExclusive = DateTime(
+      to.year,
+      to.month,
+      to.day,
+    ).add(const Duration(days: 1));
+    final inRange =
+        sessions
+            .where(
+              (s) => !s.date.isBefore(fromDay) && s.date.isBefore(endExclusive),
+            )
+            .toList()
+          ..sort((a, b) => a.date.compareTo(b.date));
 
     final b = StringBuffer()
       ..writeln('# Training Log Export')

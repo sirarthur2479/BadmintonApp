@@ -270,8 +270,9 @@ void main() {
   });
 
   group('single-session share', () {
-    testWidgets('edit mode shows a share action in the app bar',
-        (tester) async {
+    testWidgets('edit mode shows a share action in the app bar', (
+      tester,
+    ) async {
       final provider = await seed(tester);
 
       await _pumpTall(tester, provider, session: _existing);

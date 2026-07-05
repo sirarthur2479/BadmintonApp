@@ -16,8 +16,10 @@ void main() {
     DatabaseService.dbName = 'export_screen_test.db';
   });
 
-  Future<SessionProvider> seed(WidgetTester tester,
-      {List<TrainingSession> sessions = const []}) async {
+  Future<SessionProvider> seed(
+    WidgetTester tester, {
+    List<TrainingSession> sessions = const [],
+  }) async {
     final provider = SessionProvider();
     await tester.runAsync(() async {
       await DatabaseService.resetForTests();
@@ -30,68 +32,82 @@ void main() {
   }
 
   TrainingSession session(String id, int daysAgo) => TrainingSession(
-        id: id,
-        date: DateTime.now().subtract(Duration(days: daysAgo)),
-        durationMinutes: 60,
-        drills: const ['Smash'],
-        sessionGoal: 'goal $id',
-      );
+    id: id,
+    date: DateTime.now().subtract(Duration(days: daysAgo)),
+    durationMinutes: 60,
+    drills: const ['Smash'],
+    sessionGoal: 'goal $id',
+  );
 
   Future<void> pump(WidgetTester tester, SessionProvider provider) async {
-    await tester.pumpWidget(ChangeNotifierProvider.value(
-      value: provider,
-      child: const MaterialApp(home: ExportScreen()),
-    ));
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: provider,
+        child: const MaterialApp(home: ExportScreen()),
+      ),
+    );
   }
 
-  testWidgets('shows the session count for the default 30-day range',
-      (tester) async {
-    final provider = await seed(tester, sessions: [
-      session('in-1', 2),
-      session('in-2', 10),
-      session('out-1', 60), // outside the default range
-    ]);
+  testWidgets('shows the session count for the default 30-day range', (
+    tester,
+  ) async {
+    final provider = await seed(
+      tester,
+      sessions: [
+        session('in-1', 2),
+        session('in-2', 10),
+        session('out-1', 60), // outside the default range
+      ],
+    );
 
     await pump(tester, provider);
 
     expect(find.textContaining('2 sessions in range'), findsOneWidget);
   });
 
-  testWidgets('export button disabled when the range holds no sessions',
-      (tester) async {
+  testWidgets('export button disabled when the range holds no sessions', (
+    tester,
+  ) async {
     final provider = await seed(tester); // empty
 
     await pump(tester, provider);
 
     expect(find.textContaining('0 sessions in range'), findsOneWidget);
     final button = tester.widget<ElevatedButton>(
-        find.widgetWithText(ElevatedButton, 'Export as Markdown'));
+      find.widgetWithText(ElevatedButton, 'Export as Markdown'),
+    );
     expect(button.onPressed, isNull, reason: 'nothing to export');
   });
 
-  testWidgets('export button enabled when sessions are in range',
-      (tester) async {
+  testWidgets('export button enabled when sessions are in range', (
+    tester,
+  ) async {
     final provider = await seed(tester, sessions: [session('in-1', 1)]);
 
     await pump(tester, provider);
 
     final button = tester.widget<ElevatedButton>(
-        find.widgetWithText(ElevatedButton, 'Export as Markdown'));
+      find.widgetWithText(ElevatedButton, 'Export as Markdown'),
+    );
     expect(button.onPressed, isNotNull);
   });
 
-  testWidgets('history screen app bar opens the export screen',
-      (tester) async {
+  testWidgets('history screen app bar opens the export screen', (tester) async {
     final provider = await seed(tester, sessions: [session('in-1', 1)]);
 
-    await tester.pumpWidget(ChangeNotifierProvider.value(
-      value: provider,
-      child: const MaterialApp(home: SessionHistoryScreen()),
-    ));
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: provider,
+        child: const MaterialApp(home: SessionHistoryScreen()),
+      ),
+    );
 
     final exportIcon = find.byIcon(Icons.ios_share);
-    expect(exportIcon, findsOneWidget,
-        reason: 'history app bar must expose the export entry point');
+    expect(
+      exportIcon,
+      findsOneWidget,
+      reason: 'history app bar must expose the export entry point',
+    );
 
     await tester.tap(exportIcon);
     await tester.pumpAndSettle();

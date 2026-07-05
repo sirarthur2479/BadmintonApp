@@ -41,8 +41,10 @@ void main() {
 
       expect(md, contains('## Training Session — Sun, 22 Mar 2026'));
       expect(md, contains('**Goal:** Work on net play consistency'));
-      expect(md,
-          contains('**Duration:** 75 min | **Goal Achievement:** ★★★★☆'));
+      expect(
+        md,
+        contains('**Duration:** 75 min | **Goal Achievement:** ★★★★☆'),
+      );
       expect(md, contains('**Drills:** Net Play, Footwork, Drop Shot'));
       expect(md.trimRight(), endsWith('---'));
     });
@@ -52,15 +54,22 @@ void main() {
 
       expect(md, contains('### Reflection'));
       expect(
-          md,
-          contains(
-              '1. ${kReflectionQuestions[0]} Lost too many net rallies last match'));
+        md,
+        contains(
+          '1. ${kReflectionQuestions[0]} Lost too many net rallies last match',
+        ),
+      );
       expect(
-          md,
-          contains(
-              '2. ${kReflectionQuestions[4]} Add deception to the net kill next session'));
-      expect(md, isNot(contains(kReflectionQuestions[1])),
-          reason: 'unanswered questions are omitted');
+        md,
+        contains(
+          '2. ${kReflectionQuestions[4]} Add deception to the net kill next session',
+        ),
+      );
+      expect(
+        md,
+        isNot(contains(kReflectionQuestions[1])),
+        reason: 'unanswered questions are omitted',
+      );
     });
 
     test('renders remark lines only when non-empty', () {
@@ -74,31 +83,36 @@ void main() {
       expect(legacyMd, isNot(contains('### Reflection')));
     });
 
-    test('legacy session with empty goal and null intensity exports cleanly',
-        () {
-      final md = ExportService.sessionToMarkdown(_legacy);
+    test(
+      'legacy session with empty goal and null intensity exports cleanly',
+      () {
+        final md = ExportService.sessionToMarkdown(_legacy);
 
-      expect(md, contains('## Training Session — Sat, 10 Jan 2026'));
-      expect(md, isNot(contains('**Goal:**')),
-          reason: 'no goal line when the session has no goal');
-      expect(md, contains('**Duration:** 60 min'));
-      expect(md, contains('**Notes:** Old-style session'));
-    });
+        expect(md, contains('## Training Session — Sat, 10 Jan 2026'));
+        expect(
+          md,
+          isNot(contains('**Goal:**')),
+          reason: 'no goal line when the session has no goal',
+        );
+        expect(md, contains('**Duration:** 60 min'));
+        expect(md, contains('**Notes:** Old-style session'));
+      },
+    );
   });
 
   group('bulkExport', () {
     List<TrainingSession> sessions() => [
-          _full, // 2026-03-22
-          _legacy, // 2026-01-10
-          TrainingSession(
-            id: 'export-3',
-            date: DateTime(2026, 3, 1),
-            durationMinutes: 45,
-            drills: const ['Serve'],
-            sessionGoal: 'Serve accuracy',
-            goalAchievementScore: 2,
-          ),
-        ];
+      _full, // 2026-03-22
+      _legacy, // 2026-01-10
+      TrainingSession(
+        id: 'export-3',
+        date: DateTime(2026, 3, 1),
+        durationMinutes: 45,
+        drills: const ['Serve'],
+        sessionGoal: 'Serve accuracy',
+        goalAchievementScore: 2,
+      ),
+    ];
 
     test('filters by inclusive date range and reports count', () {
       final md = ExportService.bulkExport(

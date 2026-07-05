@@ -4,9 +4,11 @@ import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../models/reflection_data.dart';
 import '../../models/session.dart';
 import '../../providers/session_provider.dart';
+import '../../services/export_service.dart';
 import '../../services/photo_store.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/confirm_delete.dart';
@@ -222,7 +224,22 @@ class _LogSessionScreenState extends State<LogSessionScreen> {
       ),
     ];
     return Scaffold(
-      appBar: AppBar(title: Text(_isEditing ? 'Edit Session' : 'Log Session')),
+      appBar: AppBar(
+        title: Text(_isEditing ? 'Edit Session' : 'Log Session'),
+        actions: [
+          if (_isEditing)
+            IconButton(
+              icon: const Icon(Icons.ios_share),
+              tooltip: 'Share as Markdown',
+              onPressed: () => SharePlus.instance.share(
+                ShareParams(
+                  text: ExportService.sessionToMarkdown(widget.session!),
+                  subject: 'Training session',
+                ),
+              ),
+            ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
