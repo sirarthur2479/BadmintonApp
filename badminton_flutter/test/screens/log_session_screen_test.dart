@@ -269,6 +269,83 @@ void main() {
     });
   });
 
+  group('custom drill tags', () {
+    testWidgets('New tag chip opens a dialog and adds a selectable chip', (
+      tester,
+    ) async {
+      final provider = await seed(tester);
+
+      await _pumpTall(tester, provider);
+      await tester.tap(find.text('New tag'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AlertDialog), findsOneWidget);
+      await tester.enterText(
+        find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.byType(TextField),
+        ),
+        'Deception',
+      );
+      await tester.runAsync(() async {
+        await tester.tap(find.text('Add'));
+        await tester.pump();
+        await Future<void>.delayed(const Duration(milliseconds: 300));
+      });
+      await tester.pumpAndSettle();
+
+      final chipFinder = find.widgetWithText(FilterChip, 'Deception');
+      expect(
+        chipFinder,
+        findsOneWidget,
+        reason: 'the new tag must appear as a drill chip',
+      );
+      await tester.tap(chipFinder);
+      await tester.pump();
+      expect(tester.widget<FilterChip>(chipFinder).selected, isTrue);
+    });
+
+    testWidgets('long-press deletes a custom tag after confirmation', (
+      tester,
+    ) async {
+      final provider = await seed(tester);
+      await tester.runAsync(() => provider.addCustomTag('Deception'));
+
+      await _pumpTall(tester, provider);
+      await tester.longPress(find.widgetWithText(FilterChip, 'Deception'));
+      await tester.pumpAndSettle();
+      expect(
+        find.textContaining('Delete'),
+        findsWidgets,
+        reason: 'deleting a tag must confirm first',
+      );
+
+      await tester.runAsync(() async {
+        await tester.tap(find.text('Delete'));
+        await tester.pump();
+        await Future<void>.delayed(const Duration(milliseconds: 300));
+      });
+      await tester.pumpAndSettle();
+
+      expect(find.widgetWithText(FilterChip, 'Deception'), findsNothing);
+      expect(provider.customTags, isEmpty);
+    });
+
+    testWidgets('long-press on a built-in drill does nothing', (tester) async {
+      final provider = await seed(tester);
+
+      await _pumpTall(tester, provider);
+      await tester.longPress(find.widgetWithText(FilterChip, 'Footwork'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byType(AlertDialog),
+        findsNothing,
+        reason: 'built-in drills are not deletable',
+      );
+    });
+  });
+
   group('edit mode', () {
     testWidgets('pre-fills goal, remarks, reflection answers, and star score', (
       tester,
