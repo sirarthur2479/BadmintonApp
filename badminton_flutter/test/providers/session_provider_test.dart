@@ -104,6 +104,60 @@ void main() {
     });
   });
 
+  group('custom drill tags', () {
+    test('addCustomTag persists and appears after built-in drills', () async {
+      final provider = SessionProvider();
+      await provider.loadSessions();
+
+      await provider.addCustomTag('Shadow Footwork');
+
+      expect(provider.customTags, ['Shadow Footwork']);
+      expect(provider.allDrillTypes,
+          [...kDrillTypes, 'Shadow Footwork']);
+
+      // Cold reload sees it — persisted, not just in-memory.
+      final fresh = SessionProvider();
+      await fresh.loadSessions();
+      expect(fresh.customTags, ['Shadow Footwork']);
+    });
+
+    test('addCustomTag trims and ignores blank, duplicate, and built-in names',
+        () async {
+      final provider = SessionProvider();
+      await provider.loadSessions();
+
+      await provider.addCustomTag('  ');
+      await provider.addCustomTag('Footwork'); // built-in
+      await provider.addCustomTag('Deception');
+      await provider.addCustomTag(' Deception '); // duplicate after trim
+
+      expect(provider.customTags, ['Deception']);
+    });
+
+    test('deleteCustomTag removes the tag', () async {
+      final provider = SessionProvider();
+      await provider.loadSessions();
+      await provider.addCustomTag('Deception');
+
+      await provider.deleteCustomTag('Deception');
+
+      expect(provider.customTags, isEmpty);
+      expect(provider.allDrillTypes, kDrillTypes);
+    });
+
+    test('custom tag changes notify listeners', () async {
+      final provider = SessionProvider();
+      await provider.loadSessions();
+
+      var notifications = 0;
+      provider.addListener(() => notifications++);
+      await provider.addCustomTag('Deception');
+      await provider.deleteCustomTag('Deception');
+
+      expect(notifications, 2);
+    });
+  });
+
   group('sessionsPerWeek', () {
     // Friday, so the current week starts Monday 2026-07-06.
     final today = DateTime(2026, 7, 10);
