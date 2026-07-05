@@ -64,8 +64,10 @@ class DatabaseService {
 
   /// Schema v2: intensity is nullable (legacy rating), goal/reflection
   /// columns added, drills stored as a JSON array.
-  static Future<void> _createSessionsTable(DatabaseExecutor db,
-      {String name = 'sessions'}) async {
+  static Future<void> _createSessionsTable(
+    DatabaseExecutor db, {
+    String name = 'sessions',
+  }) async {
     await db.execute('''
       CREATE TABLE $name (
         id TEXT PRIMARY KEY,
@@ -84,7 +86,11 @@ class DatabaseService {
     ''');
   }
 
-  static Future<void> _upgrade(Database db, int oldVersion, int newVersion) async {
+  static Future<void> _upgrade(
+    Database db,
+    int oldVersion,
+    int newVersion,
+  ) async {
     if (oldVersion < 2) {
       // v1 declared intensity NOT NULL, so the table must be rebuilt, not
       // ALTERed. Drills switch from comma-joined text to a JSON array in the
@@ -96,8 +102,7 @@ class DatabaseService {
           final rawDrills = row['drills'] as String? ?? '';
           await txn.insert('sessions_new', {
             ...row,
-            'drills':
-                jsonEncode(rawDrills.isEmpty ? [] : rawDrills.split(',')),
+            'drills': jsonEncode(rawDrills.isEmpty ? [] : rawDrills.split(',')),
           });
         }
         await txn.execute('DROP TABLE sessions');
@@ -118,8 +123,10 @@ class DatabaseService {
   }
 
   @visibleForTesting
-  static Future<List<Map<String, Object?>>> debugRawQuery(String sql,
-      [List<Object?>? args]) async {
+  static Future<List<Map<String, Object?>>> debugRawQuery(
+    String sql, [
+    List<Object?>? args,
+  ]) async {
     final db = await _database;
     return db.rawQuery(sql, args);
   }
@@ -134,8 +141,7 @@ class DatabaseService {
 
   static Future<List<TrainingSession>> getSessions() async {
     if (kIsWeb) {
-      return List.from(_webSessions)
-        ..sort((a, b) => b.date.compareTo(a.date));
+      return List.from(_webSessions)..sort((a, b) => b.date.compareTo(a.date));
     }
     final db = await _database;
     final maps = await db.query('sessions', orderBy: 'date DESC');
@@ -148,8 +154,11 @@ class DatabaseService {
       return;
     }
     final db = await _database;
-    await db.insert('sessions', session.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace);
+    await db.insert(
+      'sessions',
+      session.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
 
   static Future<void> deleteSession(String id) async {
@@ -176,8 +185,11 @@ class DatabaseService {
     final db = await _database;
     final batch = db.batch();
     for (final s in sessions) {
-      batch.insert('sessions', s.toMap(),
-          conflictAlgorithm: ConflictAlgorithm.ignore);
+      batch.insert(
+        'sessions',
+        s.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
     }
     await batch.commit(noResult: true);
   }
@@ -210,8 +222,11 @@ class DatabaseService {
       return;
     }
     final db = await _database;
-    await db.insert('tournaments', tournament.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace);
+    await db.insert(
+      'tournaments',
+      tournament.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
 
   static Future<void> deleteTournament(String id) async {
@@ -228,14 +243,18 @@ class DatabaseService {
     if (kIsWeb) {
       final idx = _webTournaments.indexWhere((t) => t.id == match.tournamentId);
       if (idx >= 0) {
-        _webTournaments[idx] = _webTournaments[idx]
-            .copyWith(matches: [..._webTournaments[idx].matches, match]);
+        _webTournaments[idx] = _webTournaments[idx].copyWith(
+          matches: [..._webTournaments[idx].matches, match],
+        );
       }
       return;
     }
     final db = await _database;
-    await db.insert('matches', match.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace);
+    await db.insert(
+      'matches',
+      match.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
 
   static Future<void> deleteMatch(String id) async {
@@ -243,8 +262,9 @@ class DatabaseService {
       for (int i = 0; i < _webTournaments.length; i++) {
         final t = _webTournaments[i];
         if (t.matches.any((m) => m.id == id)) {
-          _webTournaments[i] =
-              t.copyWith(matches: t.matches.where((m) => m.id != id).toList());
+          _webTournaments[i] = t.copyWith(
+            matches: t.matches.where((m) => m.id != id).toList(),
+          );
           break;
         }
       }
