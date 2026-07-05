@@ -6,9 +6,15 @@ import '../utils/streak.dart' as streak_util;
 
 class SessionProvider extends ChangeNotifier {
   List<TrainingSession> _sessions = [];
+  List<String> _customTags = [];
   bool _loaded = false;
 
   List<TrainingSession> get sessions => _sessions;
+
+  List<String> get customTags => _customTags;
+
+  /// Built-in drills first, then the user's own tags.
+  List<String> get allDrillTypes => [...kDrillTypes, ..._customTags];
 
   Future<void> loadSessions() async {
     if (_loaded) return;
@@ -18,7 +24,24 @@ class SessionProvider extends ChangeNotifier {
   /// Reloads from the DB unconditionally (pull-to-refresh).
   Future<void> refresh() async {
     _sessions = await DatabaseService.getSessions();
+    _customTags = await DatabaseService.getCustomTags();
     _loaded = true;
+    notifyListeners();
+  }
+
+  Future<void> addCustomTag(String name) async {
+    final tag = name.trim();
+    if (tag.isEmpty || kDrillTypes.contains(tag) || _customTags.contains(tag)) {
+      return;
+    }
+    await DatabaseService.insertCustomTag(tag);
+    _customTags = [..._customTags, tag];
+    notifyListeners();
+  }
+
+  Future<void> deleteCustomTag(String name) async {
+    await DatabaseService.deleteCustomTag(name);
+    _customTags = _customTags.where((t) => t != name).toList();
     notifyListeners();
   }
 
