@@ -1,5 +1,14 @@
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import '../models/session.dart';
+
+const String kSampleDataSeededKey = 'sample_data_seeded';
+
+/// Seeds the demo sessions at most once per install.
+/// Returns true when it seeded.
+Future<bool> seedSampleDataIfNeeded(SharedPreferences prefs) async {
+  return false; // stub — behaviour driven by seed_gate_test.dart
+}
 
 List<TrainingSession> buildSampleSessions() {
   final now = DateTime.now();
