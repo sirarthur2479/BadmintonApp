@@ -10,7 +10,10 @@ import '../../services/photo_store.dart';
 import '../../theme/app_theme.dart';
 
 class LogSessionScreen extends StatefulWidget {
-  const LogSessionScreen({super.key});
+  /// When non-null the screen edits this session instead of creating one.
+  final TrainingSession? session;
+
+  const LogSessionScreen({super.key, this.session});
 
   @override
   State<LogSessionScreen> createState() => _LogSessionScreenState();
@@ -20,10 +23,34 @@ class _LogSessionScreenState extends State<LogSessionScreen> {
   DateTime _date = DateTime.now();
   int _duration = 60;
   final Set<String> _selectedDrills = {};
+  late final List<String> _drillOptions;
   int _intensity = 3;
   final _notesController = TextEditingController();
   String? _photoPath;
   bool _saving = false;
+
+  bool get _isEditing => widget.session != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final session = widget.session;
+    // Legacy/custom drills on an existing session must stay selectable even
+    // if they're not built-in.
+    _drillOptions = [
+      ...kDrillTypes,
+      if (session != null)
+        ...session.drills.where((d) => !kDrillTypes.contains(d)),
+    ];
+    if (session != null) {
+      _date = session.date;
+      _duration = session.durationMinutes;
+      _selectedDrills.addAll(session.drills);
+      _intensity = session.intensity ?? 3;
+      _notesController.text = session.notes;
+      _photoPath = session.photoPath;
+    }
+  }
 
   @override
   void dispose() {
@@ -56,30 +83,48 @@ class _LogSessionScreenState extends State<LogSessionScreen> {
     }
     setState(() => _saving = true);
     final provider = context.read<SessionProvider>();
-    final id = const Uuid().v4();
+    final id = widget.session?.id ?? const Uuid().v4();
     // The picker returns a purgeable temp-cache path; copy the photo into
     // app documents before persisting. Web keeps the blob URL as-is.
+    // In edit mode an untouched photo path is already stored — don't re-copy.
     String? storedPhoto = _photoPath;
-    if (_photoPath != null && !kIsWeb) {
+    final photoChanged = _photoPath != widget.session?.photoPath;
+    if (_photoPath != null && !kIsWeb && (!_isEditing || photoChanged)) {
       storedPhoto = await PhotoStore.instance.savePhoto(_photoPath!, id);
     }
-    final session = TrainingSession(
-      id: id,
-      date: _date,
-      durationMinutes: _duration,
-      drills: _selectedDrills.toList(),
-      intensity: _intensity,
-      notes: _notesController.text.trim(),
-      photoPath: storedPhoto,
-    );
-    await provider.addSession(session);
+    if (_isEditing) {
+      final oldPhoto = widget.session!.photoPath;
+      final updated = widget.session!.copyWith(
+        date: _date,
+        durationMinutes: _duration,
+        drills: _selectedDrills.toList(),
+        intensity: _intensity,
+        notes: _notesController.text.trim(),
+        photoPath: storedPhoto,
+      );
+      await provider.updateSession(updated);
+      if (photoChanged && oldPhoto != null && !kIsWeb) {
+        await PhotoStore.instance.deletePhoto(oldPhoto);
+      }
+    } else {
+      final session = TrainingSession(
+        id: id,
+        date: _date,
+        durationMinutes: _duration,
+        drills: _selectedDrills.toList(),
+        intensity: _intensity,
+        notes: _notesController.text.trim(),
+        photoPath: storedPhoto,
+      );
+      await provider.addSession(session);
+    }
     if (mounted) Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Log Session')),
+      appBar: AppBar(title: Text(_isEditing ? 'Edit Session' : 'Log Session')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -126,7 +171,7 @@ class _LogSessionScreenState extends State<LogSessionScreen> {
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: kDrillTypes.map((drill) {
+            children: _drillOptions.map((drill) {
               final selected = _selectedDrills.contains(drill);
               return FilterChip(
                 label: Text(drill),
@@ -211,7 +256,7 @@ class _LogSessionScreenState extends State<LogSessionScreen> {
                     child: CircularProgressIndicator(
                         strokeWidth: 2, color: Colors.white),
                   )
-                : const Text('Save Session'),
+                : Text(_isEditing ? 'Update Session' : 'Save Session'),
           ),
           const SizedBox(height: 16),
         ],
