@@ -60,8 +60,10 @@ void main() {
 
       final decoded = decodeReflectionAnswers(encodeReflectionAnswers(answers));
 
-      expect(decoded.single.answer,
-          'Smash, drop, then "deception" drills — in that order');
+      expect(
+        decoded.single.answer,
+        'Smash, drop, then "deception" drills — in that order',
+      );
     });
   });
 }

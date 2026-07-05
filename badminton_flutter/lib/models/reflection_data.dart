@@ -17,9 +17,9 @@ class ReflectionAnswer {
   const ReflectionAnswer({required this.questionKey, required this.answer});
 
   Map<String, dynamic> toJson() => {
-        'questionKey': questionKey,
-        'answer': answer,
-      };
+    'questionKey': questionKey,
+    'answer': answer,
+  };
 
   factory ReflectionAnswer.fromJson(Map<String, dynamic> json) {
     return ReflectionAnswer(

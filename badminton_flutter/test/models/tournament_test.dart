@@ -68,8 +68,7 @@ void main() {
         matches: matches,
       );
 
-      final restored =
-          Tournament.fromMap(tournament.toMap(), matches: matches);
+      final restored = Tournament.fromMap(tournament.toMap(), matches: matches);
 
       expect(restored.id, tournament.id);
       expect(restored.name, tournament.name);

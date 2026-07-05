@@ -34,8 +34,11 @@ class SessionCard extends StatelessWidget {
                   const SizedBox(width: 8),
                   GestureDetector(
                     onTap: onDelete,
-                    child: const Icon(Icons.delete_outline,
-                        size: 20, color: AppTheme.textSecondary),
+                    child: const Icon(
+                      Icons.delete_outline,
+                      size: 20,
+                      color: AppTheme.textSecondary,
+                    ),
                   ),
                 ],
               ],
@@ -43,8 +46,11 @@ class SessionCard extends StatelessWidget {
             const SizedBox(height: 6),
             Row(
               children: [
-                const Icon(Icons.timer_outlined,
-                    size: 14, color: AppTheme.textSecondary),
+                const Icon(
+                  Icons.timer_outlined,
+                  size: 14,
+                  color: AppTheme.textSecondary,
+                ),
                 const SizedBox(width: 4),
                 Text(
                   '${session.durationMinutes} min',
@@ -58,11 +64,12 @@ class SessionCard extends StatelessWidget {
                 spacing: 6,
                 runSpacing: 4,
                 children: session.drills
-                    .map((d) => Chip(
-                          label: Text(d),
-                          materialTapTargetSize:
-                              MaterialTapTargetSize.shrinkWrap,
-                        ))
+                    .map(
+                      (d) => Chip(
+                        label: Text(d),
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                    )
                     .toList(),
               ),
             ],
@@ -101,9 +108,8 @@ class _PhotoThumbnail extends StatelessWidget {
         return GestureDetector(
           onTap: () => showDialog<void>(
             context: context,
-            builder: (_) => Dialog(
-              child: InteractiveViewer(child: Image.file(File(path))),
-            ),
+            builder: (_) =>
+                Dialog(child: InteractiveViewer(child: Image.file(File(path)))),
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(8),

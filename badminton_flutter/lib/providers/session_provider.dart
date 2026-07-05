@@ -51,11 +51,12 @@ class SessionProvider extends ChangeNotifier {
   int get sessionsThisWeek {
     final now = DateTime.now();
     final weekStart = now.subtract(Duration(days: now.weekday - 1));
-    final weekStartDay =
-        DateTime(weekStart.year, weekStart.month, weekStart.day);
-    return _sessions
-        .where((s) => !s.date.isBefore(weekStartDay))
-        .length;
+    final weekStartDay = DateTime(
+      weekStart.year,
+      weekStart.month,
+      weekStart.day,
+    );
+    return _sessions.where((s) => !s.date.isBefore(weekStartDay)).length;
   }
 
   int get sessionsThisMonth {
@@ -74,12 +75,13 @@ class SessionProvider extends ChangeNotifier {
     final result = <DateTime, int>{};
     for (int i = weeks - 1; i >= 0; i--) {
       final weekStart = DateTime(
-              effectiveNow.year, effectiveNow.month, effectiveNow.day)
-          .subtract(Duration(days: effectiveNow.weekday - 1 + 7 * i));
+        effectiveNow.year,
+        effectiveNow.month,
+        effectiveNow.day,
+      ).subtract(Duration(days: effectiveNow.weekday - 1 + 7 * i));
       final weekEnd = weekStart.add(const Duration(days: 7));
       final count = _sessions
-          .where((s) =>
-              !s.date.isBefore(weekStart) && s.date.isBefore(weekEnd))
+          .where((s) => !s.date.isBefore(weekStart) && s.date.isBefore(weekEnd))
           .length;
       result[weekStart] = count;
     }
@@ -92,23 +94,26 @@ class SessionProvider extends ChangeNotifier {
     final result = <DateTime, double>{};
     for (int i = weeks - 1; i >= 0; i--) {
       final weekStart = DateTime(
-              effectiveNow.year, effectiveNow.month, effectiveNow.day)
-          .subtract(Duration(days: effectiveNow.weekday - 1 + 7 * i));
+        effectiveNow.year,
+        effectiveNow.month,
+        effectiveNow.day,
+      ).subtract(Duration(days: effectiveNow.weekday - 1 + 7 * i));
       final weekEnd = weekStart.add(const Duration(days: 7));
       // Sessions logged since the goal redesign have no intensity; only
       // legacy rated sessions count toward the average.
       final week = _sessions
-          .where((s) =>
-              !s.date.isBefore(weekStart) &&
-              s.date.isBefore(weekEnd) &&
-              s.intensity != null)
+          .where(
+            (s) =>
+                !s.date.isBefore(weekStart) &&
+                s.date.isBefore(weekEnd) &&
+                s.intensity != null,
+          )
           .toList();
       if (week.isEmpty) {
         result[weekStart] = 0;
       } else {
         final avg =
-            week.map((s) => s.intensity!).reduce((a, b) => a + b) /
-                week.length;
+            week.map((s) => s.intensity!).reduce((a, b) => a + b) / week.length;
         result[weekStart] = avg;
       }
     }

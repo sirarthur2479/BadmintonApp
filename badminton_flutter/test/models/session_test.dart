@@ -193,8 +193,10 @@ void main() {
       expect(base.copyWith(goalAchievementScore: 5).goalAchievementScore, 5);
       expect(base.copyWith(playerRemarks: 'p').playerRemarks, 'p');
       expect(base.copyWith(coachRemarks: 'c').coachRemarks, 'c');
-      expect(base.copyWith(reflectionAnswersJson: '[1]').reflectionAnswersJson,
-          '[1]');
+      expect(
+        base.copyWith(reflectionAnswersJson: '[1]').reflectionAnswersJson,
+        '[1]',
+      );
       expect(base.copyWith(intensity: 2).intensity, 2);
       // Untouched fields stay put.
       final copy = base.copyWith(sessionGoal: 'g');
