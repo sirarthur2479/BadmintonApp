@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
@@ -29,27 +31,13 @@ class DatabaseService {
 
     return openDatabase(
       path,
-      version: 1,
+      version: 2,
       // sqflite leaves foreign keys OFF by default; without this the
       // matches-table ON DELETE CASCADE is inert.
       onConfigure: (db) => db.execute('PRAGMA foreign_keys = ON'),
+      onUpgrade: _upgrade,
       onCreate: (db, version) async {
-        await db.execute('''
-          CREATE TABLE sessions (
-            id TEXT PRIMARY KEY,
-            date TEXT NOT NULL,
-            durationMinutes INTEGER NOT NULL,
-            drills TEXT NOT NULL,
-            intensity INTEGER,
-            notes TEXT NOT NULL,
-            photoPath TEXT,
-            sessionGoal TEXT NOT NULL DEFAULT '',
-            goalAchievementScore INTEGER NOT NULL DEFAULT 3,
-            playerRemarks TEXT NOT NULL DEFAULT '',
-            coachRemarks TEXT NOT NULL DEFAULT '',
-            reflectionAnswersJson TEXT NOT NULL DEFAULT '[]'
-          )
-        ''');
+        await _createSessionsTable(db);
         await db.execute('''
           CREATE TABLE tournaments (
             id TEXT PRIMARY KEY,
@@ -72,6 +60,50 @@ class DatabaseService {
         ''');
       },
     );
+  }
+
+  /// Schema v2: intensity is nullable (legacy rating), goal/reflection
+  /// columns added, drills stored as a JSON array.
+  static Future<void> _createSessionsTable(DatabaseExecutor db,
+      {String name = 'sessions'}) async {
+    await db.execute('''
+      CREATE TABLE $name (
+        id TEXT PRIMARY KEY,
+        date TEXT NOT NULL,
+        durationMinutes INTEGER NOT NULL,
+        drills TEXT NOT NULL,
+        intensity INTEGER,
+        notes TEXT NOT NULL,
+        photoPath TEXT,
+        sessionGoal TEXT NOT NULL DEFAULT '',
+        goalAchievementScore INTEGER NOT NULL DEFAULT 3,
+        playerRemarks TEXT NOT NULL DEFAULT '',
+        coachRemarks TEXT NOT NULL DEFAULT '',
+        reflectionAnswersJson TEXT NOT NULL DEFAULT '[]'
+      )
+    ''');
+  }
+
+  static Future<void> _upgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      // v1 declared intensity NOT NULL, so the table must be rebuilt, not
+      // ALTERed. Drills switch from comma-joined text to a JSON array in the
+      // same pass.
+      await db.transaction((txn) async {
+        await _createSessionsTable(txn, name: 'sessions_new');
+        final rows = await txn.query('sessions');
+        for (final row in rows) {
+          final rawDrills = row['drills'] as String? ?? '';
+          await txn.insert('sessions_new', {
+            ...row,
+            'drills':
+                jsonEncode(rawDrills.isEmpty ? [] : rawDrills.split(',')),
+          });
+        }
+        await txn.execute('DROP TABLE sessions');
+        await txn.execute('ALTER TABLE sessions_new RENAME TO sessions');
+      });
+    }
   }
 
   // ── Test hooks ───────────────────────────────────────────────────────────
