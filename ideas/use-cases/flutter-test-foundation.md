@@ -1,6 +1,6 @@
 # Use case: flutter-test-foundation
 
-**Status:** planned (TASK-005 → TASK-006)
+**Status:** done (TASK-005 → TASK-006, completed 2026-07-05)
 **Created:** 2026-07-05
 **Source:** `badminton_flutter/docs/codebase-review-2026-07-05.md` §2 (pool idea #2)
 

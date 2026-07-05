@@ -9,3 +9,4 @@
 | TASK-003 | Session photos persist to app documents dir with relative paths, delete with their session, and display as tap-to-view thumbnails on session cards (B4) |
 | TASK-004 | Tournament delete added to UI, match delete confirms, shared confirmDelete helper (B6); streak math extracted to pure tested utils, Progress shows current + best streak (B5). Closes the B1-B8 bug batch |
 | TASK-005 | Model round-trip test coverage added for `TrainingSession`, `Tournament`/`TournamentMatch`, and `PlayerProfile` (`test/models/`) — comma/pipe-join, nullable fields, and default fallback all characterized. 42/42 suite green, no production changes |
+| TASK-006 | `sessionsPerWeek`/`avgIntensityPerWeek` take an injectable `now:` param for deterministic week-boundary/empty-week/averaging tests; removed the counter-app placeholder `widget_test.dart`. Closes the flutter-test-foundation use-case. 46/46 suite green |
