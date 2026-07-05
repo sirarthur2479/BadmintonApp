@@ -28,7 +28,8 @@ class SessionCard extends StatelessWidget {
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                 ),
-                _IntensityDots(intensity: session.intensity),
+                if (session.intensity != null)
+                  _IntensityDots(intensity: session.intensity!),
                 if (onDelete != null) ...[
                   const SizedBox(width: 8),
                   GestureDetector(

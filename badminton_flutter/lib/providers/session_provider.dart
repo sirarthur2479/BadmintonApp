@@ -95,15 +95,20 @@ class SessionProvider extends ChangeNotifier {
               effectiveNow.year, effectiveNow.month, effectiveNow.day)
           .subtract(Duration(days: effectiveNow.weekday - 1 + 7 * i));
       final weekEnd = weekStart.add(const Duration(days: 7));
+      // Sessions logged since the goal redesign have no intensity; only
+      // legacy rated sessions count toward the average.
       final week = _sessions
           .where((s) =>
-              !s.date.isBefore(weekStart) && s.date.isBefore(weekEnd))
+              !s.date.isBefore(weekStart) &&
+              s.date.isBefore(weekEnd) &&
+              s.intensity != null)
           .toList();
       if (week.isEmpty) {
         result[weekStart] = 0;
       } else {
         final avg =
-            week.map((s) => s.intensity).reduce((a, b) => a + b) / week.length;
+            week.map((s) => s.intensity!).reduce((a, b) => a + b) /
+                week.length;
         result[weekStart] = avg;
       }
     }

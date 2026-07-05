@@ -40,9 +40,14 @@ class DatabaseService {
             date TEXT NOT NULL,
             durationMinutes INTEGER NOT NULL,
             drills TEXT NOT NULL,
-            intensity INTEGER NOT NULL,
+            intensity INTEGER,
             notes TEXT NOT NULL,
-            photoPath TEXT
+            photoPath TEXT,
+            sessionGoal TEXT NOT NULL DEFAULT '',
+            goalAchievementScore INTEGER NOT NULL DEFAULT 3,
+            playerRemarks TEXT NOT NULL DEFAULT '',
+            coachRemarks TEXT NOT NULL DEFAULT '',
+            reflectionAnswersJson TEXT NOT NULL DEFAULT '[]'
           )
         ''');
         await db.execute('''
