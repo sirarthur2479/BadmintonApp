@@ -7,13 +7,13 @@ import 'package:badminton_flutter/providers/session_provider.dart';
 import 'package:badminton_flutter/services/database_service.dart';
 
 TrainingSession _session(String note, {int day = 1}) => TrainingSession(
-      id: const Uuid().v4(),
-      date: DateTime(2026, 7, day),
-      durationMinutes: 60,
-      drills: const ['Footwork'],
-      intensity: 3,
-      notes: note,
-    );
+  id: const Uuid().v4(),
+  date: DateTime(2026, 7, day),
+  durationMinutes: 60,
+  drills: const ['Footwork'],
+  intensity: 3,
+  notes: note,
+);
 
 void main() {
   setUpAll(() {
@@ -26,19 +26,24 @@ void main() {
     await DatabaseService.resetForTests();
   });
 
-  test('refresh() picks up rows inserted behind the provider\'s back',
-      () async {
-    final provider = SessionProvider();
-    await provider.loadSessions();
-    expect(provider.sessions, isEmpty);
+  test(
+    'refresh() picks up rows inserted behind the provider\'s back',
+    () async {
+      final provider = SessionProvider();
+      await provider.loadSessions();
+      expect(provider.sessions, isEmpty);
 
-    // Insert directly at the DB layer — the provider doesn't know.
-    await DatabaseService.insertSession(_session('inserted externally'));
+      // Insert directly at the DB layer — the provider doesn't know.
+      await DatabaseService.insertSession(_session('inserted externally'));
 
-    await provider.refresh();
-    expect(provider.sessions, hasLength(1),
-        reason: 'refresh must reload from the DB even after initial load');
-  });
+      await provider.refresh();
+      expect(
+        provider.sessions,
+        hasLength(1),
+        reason: 'refresh must reload from the DB even after initial load',
+      );
+    },
+  );
 
   test('loadSessions() is still a one-shot guard', () async {
     final provider = SessionProvider();
@@ -47,8 +52,11 @@ void main() {
     await DatabaseService.insertSession(_session('inserted externally'));
 
     await provider.loadSessions();
-    expect(provider.sessions, isEmpty,
-        reason: 'loadSessions stays guarded; only refresh() reloads');
+    expect(
+      provider.sessions,
+      isEmpty,
+      reason: 'loadSessions stays guarded; only refresh() reloads',
+    );
   });
 
   group('updateSession', () {
@@ -82,12 +90,13 @@ void main() {
       expect(provider.sessions.first.id, newer.id);
 
       // Move the older session past the newer one.
-      await provider.updateSession(
-        older.copyWith(date: DateTime(2026, 7, 9)),
-      );
+      await provider.updateSession(older.copyWith(date: DateTime(2026, 7, 9)));
 
-      expect(provider.sessions.first.id, older.id,
-          reason: 'list must stay sorted date-descending after an edit');
+      expect(
+        provider.sessions.first.id,
+        older.id,
+        reason: 'list must stay sorted date-descending after an edit',
+      );
     });
 
     test('notifies listeners', () async {
@@ -112,8 +121,7 @@ void main() {
       await provider.addCustomTag('Shadow Footwork');
 
       expect(provider.customTags, ['Shadow Footwork']);
-      expect(provider.allDrillTypes,
-          [...kDrillTypes, 'Shadow Footwork']);
+      expect(provider.allDrillTypes, [...kDrillTypes, 'Shadow Footwork']);
 
       // Cold reload sees it — persisted, not just in-memory.
       final fresh = SessionProvider();
@@ -121,18 +129,20 @@ void main() {
       expect(fresh.customTags, ['Shadow Footwork']);
     });
 
-    test('addCustomTag trims and ignores blank, duplicate, and built-in names',
-        () async {
-      final provider = SessionProvider();
-      await provider.loadSessions();
+    test(
+      'addCustomTag trims and ignores blank, duplicate, and built-in names',
+      () async {
+        final provider = SessionProvider();
+        await provider.loadSessions();
 
-      await provider.addCustomTag('  ');
-      await provider.addCustomTag('Footwork'); // built-in
-      await provider.addCustomTag('Deception');
-      await provider.addCustomTag(' Deception '); // duplicate after trim
+        await provider.addCustomTag('  ');
+        await provider.addCustomTag('Footwork'); // built-in
+        await provider.addCustomTag('Deception');
+        await provider.addCustomTag(' Deception '); // duplicate after trim
 
-      expect(provider.customTags, ['Deception']);
-    });
+        expect(provider.customTags, ['Deception']);
+      },
+    );
 
     test('deleteCustomTag removes the tag', () async {
       final provider = SessionProvider();
@@ -164,18 +174,21 @@ void main() {
     final currentWeekStart = DateTime(2026, 7, 6);
     final previousWeekStart = DateTime(2026, 6, 29);
 
-    test('counts a session that falls exactly on the week-start boundary',
-        () async {
-      final provider = SessionProvider();
-      await provider.loadSessions();
-      await DatabaseService.insertSession(
-          _session('on boundary', day: currentWeekStart.day));
-      await provider.refresh();
+    test(
+      'counts a session that falls exactly on the week-start boundary',
+      () async {
+        final provider = SessionProvider();
+        await provider.loadSessions();
+        await DatabaseService.insertSession(
+          _session('on boundary', day: currentWeekStart.day),
+        );
+        await provider.refresh();
 
-      final buckets = provider.sessionsPerWeek(weeks: 2, now: today);
+        final buckets = provider.sessionsPerWeek(weeks: 2, now: today);
 
-      expect(buckets[currentWeekStart], 1);
-    });
+        expect(buckets[currentWeekStart], 1);
+      },
+    );
 
     test('returns 0 for a week with no sessions', () async {
       final provider = SessionProvider();
@@ -191,19 +204,24 @@ void main() {
       final provider = SessionProvider();
       await provider.loadSessions();
       // 3 weeks before the current week start — outside a 2-week window.
-      await DatabaseService.insertSession(TrainingSession(
-        id: const Uuid().v4(),
-        date: currentWeekStart.subtract(const Duration(days: 21)),
-        durationMinutes: 60,
-        drills: const ['Footwork'],
-        intensity: 3,
-      ));
+      await DatabaseService.insertSession(
+        TrainingSession(
+          id: const Uuid().v4(),
+          date: currentWeekStart.subtract(const Duration(days: 21)),
+          durationMinutes: 60,
+          drills: const ['Footwork'],
+          intensity: 3,
+        ),
+      );
       await provider.refresh();
 
       final buckets = provider.sessionsPerWeek(weeks: 2, now: today);
 
-      expect(buckets.values.every((count) => count == 0), isTrue,
-          reason: 'session 3 weeks back must not appear in a 2-week window');
+      expect(
+        buckets.values.every((count) => count == 0),
+        isTrue,
+        reason: 'session 3 weeks back must not appear in a 2-week window',
+      );
     });
   });
 
@@ -214,20 +232,24 @@ void main() {
     test('averages multiple sessions in the same week', () async {
       final provider = SessionProvider();
       await provider.loadSessions();
-      await DatabaseService.insertSession(TrainingSession(
-        id: const Uuid().v4(),
-        date: currentWeekStart,
-        durationMinutes: 60,
-        drills: const ['Footwork'],
-        intensity: 2,
-      ));
-      await DatabaseService.insertSession(TrainingSession(
-        id: const Uuid().v4(),
-        date: currentWeekStart.add(const Duration(days: 1)),
-        durationMinutes: 60,
-        drills: const ['Smash'],
-        intensity: 4,
-      ));
+      await DatabaseService.insertSession(
+        TrainingSession(
+          id: const Uuid().v4(),
+          date: currentWeekStart,
+          durationMinutes: 60,
+          drills: const ['Footwork'],
+          intensity: 2,
+        ),
+      );
+      await DatabaseService.insertSession(
+        TrainingSession(
+          id: const Uuid().v4(),
+          date: currentWeekStart.add(const Duration(days: 1)),
+          durationMinutes: 60,
+          drills: const ['Smash'],
+          intensity: 4,
+        ),
+      );
       await provider.refresh();
 
       final buckets = provider.avgIntensityPerWeek(weeks: 1, now: today);
@@ -247,38 +269,47 @@ void main() {
     test('ignores sessions with null intensity', () async {
       final provider = SessionProvider();
       await provider.loadSessions();
-      await DatabaseService.insertSession(TrainingSession(
-        id: const Uuid().v4(),
-        date: currentWeekStart,
-        durationMinutes: 60,
-        drills: const ['Footwork'],
-        intensity: 4,
-      ));
+      await DatabaseService.insertSession(
+        TrainingSession(
+          id: const Uuid().v4(),
+          date: currentWeekStart,
+          durationMinutes: 60,
+          drills: const ['Footwork'],
+          intensity: 4,
+        ),
+      );
       // Post-redesign session: no intensity rating.
-      await DatabaseService.insertSession(TrainingSession(
-        id: const Uuid().v4(),
-        date: currentWeekStart.add(const Duration(days: 1)),
-        durationMinutes: 60,
-        drills: const ['Smash'],
-        sessionGoal: 'unrated',
-      ));
+      await DatabaseService.insertSession(
+        TrainingSession(
+          id: const Uuid().v4(),
+          date: currentWeekStart.add(const Duration(days: 1)),
+          durationMinutes: 60,
+          drills: const ['Smash'],
+          sessionGoal: 'unrated',
+        ),
+      );
       await provider.refresh();
 
       final buckets = provider.avgIntensityPerWeek(weeks: 1, now: today);
 
-      expect(buckets[currentWeekStart], 4.0,
-          reason: 'unrated sessions must not drag the average toward zero');
+      expect(
+        buckets[currentWeekStart],
+        4.0,
+        reason: 'unrated sessions must not drag the average toward zero',
+      );
     });
 
     test('a week with only unrated sessions reports 0.0', () async {
       final provider = SessionProvider();
       await provider.loadSessions();
-      await DatabaseService.insertSession(TrainingSession(
-        id: const Uuid().v4(),
-        date: currentWeekStart,
-        durationMinutes: 60,
-        drills: const ['Footwork'],
-      ));
+      await DatabaseService.insertSession(
+        TrainingSession(
+          id: const Uuid().v4(),
+          date: currentWeekStart,
+          durationMinutes: 60,
+          drills: const ['Footwork'],
+        ),
+      );
       await provider.refresh();
 
       final buckets = provider.avgIntensityPerWeek(weeks: 1, now: today);
@@ -295,31 +326,36 @@ void main() {
     test('buckets scores into the correct weeks and averages them', () async {
       final provider = SessionProvider();
       await provider.loadSessions();
-      await DatabaseService.insertSession(TrainingSession(
-        id: const Uuid().v4(),
-        date: currentWeekStart,
-        durationMinutes: 60,
-        drills: const ['Footwork'],
-        goalAchievementScore: 2,
-      ));
-      await DatabaseService.insertSession(TrainingSession(
-        id: const Uuid().v4(),
-        date: currentWeekStart.add(const Duration(days: 2)),
-        durationMinutes: 60,
-        drills: const ['Smash'],
-        goalAchievementScore: 5,
-      ));
-      await DatabaseService.insertSession(TrainingSession(
-        id: const Uuid().v4(),
-        date: previousWeekStart,
-        durationMinutes: 60,
-        drills: const ['Clear'],
-        goalAchievementScore: 1,
-      ));
+      await DatabaseService.insertSession(
+        TrainingSession(
+          id: const Uuid().v4(),
+          date: currentWeekStart,
+          durationMinutes: 60,
+          drills: const ['Footwork'],
+          goalAchievementScore: 2,
+        ),
+      );
+      await DatabaseService.insertSession(
+        TrainingSession(
+          id: const Uuid().v4(),
+          date: currentWeekStart.add(const Duration(days: 2)),
+          durationMinutes: 60,
+          drills: const ['Smash'],
+          goalAchievementScore: 5,
+        ),
+      );
+      await DatabaseService.insertSession(
+        TrainingSession(
+          id: const Uuid().v4(),
+          date: previousWeekStart,
+          durationMinutes: 60,
+          drills: const ['Clear'],
+          goalAchievementScore: 1,
+        ),
+      );
       await provider.refresh();
 
-      final buckets =
-          provider.avgGoalAchievementPerWeek(weeks: 2, now: today);
+      final buckets = provider.avgGoalAchievementPerWeek(weeks: 2, now: today);
 
       expect(buckets[currentWeekStart], 3.5);
       expect(buckets[previousWeekStart], 1.0);
@@ -329,8 +365,7 @@ void main() {
       final provider = SessionProvider();
       await provider.loadSessions();
 
-      final buckets =
-          provider.avgGoalAchievementPerWeek(weeks: 8, now: today);
+      final buckets = provider.avgGoalAchievementPerWeek(weeks: 8, now: today);
 
       expect(buckets, hasLength(8));
       expect(buckets.values.every((avg) => avg == 0.0), isTrue);
