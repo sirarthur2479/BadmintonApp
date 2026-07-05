@@ -14,9 +14,9 @@ class GoalAchievementChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final perWeek = context
-        .watch<SessionProvider>()
-        .avgGoalAchievementPerWeek(weeks: weeks);
+    final perWeek = context.watch<SessionProvider>().avgGoalAchievementPerWeek(
+      weeks: weeks,
+    );
     final weekStarts = perWeek.keys.toList();
 
     return SizedBox(

@@ -63,35 +63,45 @@ void main() {
       coachRemarks: 'watch recovery',
     );
 
-    testWidgets('shows goal text and star badge when a goal is set',
-        (tester) async {
+    testWidgets('shows goal text and star badge when a goal is set', (
+      tester,
+    ) async {
       await tester.pumpWidget(_app(SessionCard(session: goalSession)));
 
       expect(find.text('Sharper net kills'), findsOneWidget);
-      expect(find.byIcon(Icons.star), findsNWidgets(4),
-          reason: 'goal achievement 4/5 renders 4 filled stars');
+      expect(
+        find.byIcon(Icons.star),
+        findsNWidgets(4),
+        reason: 'goal achievement 4/5 renders 4 filled stars',
+      );
       expect(find.byIcon(Icons.star_border), findsNWidgets(1));
     });
 
-    testWidgets('shows player and coach remarks when non-empty',
-        (tester) async {
+    testWidgets('shows player and coach remarks when non-empty', (
+      tester,
+    ) async {
       await tester.pumpWidget(_app(SessionCard(session: goalSession)));
 
       expect(find.textContaining('kills were crisp'), findsOneWidget);
       expect(find.textContaining('watch recovery'), findsOneWidget);
     });
 
-    testWidgets('legacy session keeps intensity dots and no goal line',
-        (tester) async {
+    testWidgets('legacy session keeps intensity dots and no goal line', (
+      tester,
+    ) async {
       await tester.pumpWidget(_app(SessionCard(session: _session)));
 
-      expect(find.byIcon(Icons.star), findsNothing,
-          reason: 'no stars without a goal-based session');
+      expect(
+        find.byIcon(Icons.star),
+        findsNothing,
+        reason: 'no stars without a goal-based session',
+      );
       expect(find.textContaining('Goal'), findsNothing);
     });
 
-    testWidgets('goalless session with null intensity renders without badges',
-        (tester) async {
+    testWidgets('goalless session with null intensity renders without badges', (
+      tester,
+    ) async {
       final bare = TrainingSession(
         id: 'card-bare',
         date: DateTime(2026, 7, 4),

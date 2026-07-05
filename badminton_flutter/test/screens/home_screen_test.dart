@@ -17,8 +17,10 @@ void main() {
     DatabaseService.dbName = 'home_screen_test.db';
   });
 
-  Future<SessionProvider> seed(WidgetTester tester,
-      {TrainingSession? session}) async {
+  Future<SessionProvider> seed(
+    WidgetTester tester, {
+    TrainingSession? session,
+  }) async {
     final provider = SessionProvider();
     await tester.runAsync(() async {
       await DatabaseService.resetForTests();
@@ -32,14 +34,17 @@ void main() {
     tester.view.physicalSize = const Size(800, 3000);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(ChangeNotifierProvider.value(
-      value: provider,
-      child: const MaterialApp(home: HomeScreen()),
-    ));
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: provider,
+        child: const MaterialApp(home: HomeScreen()),
+      ),
+    );
   }
 
-  testWidgets('last-session card shows goal text and stars, not intensity',
-      (tester) async {
+  testWidgets('last-session card shows goal text and stars, not intensity', (
+    tester,
+  ) async {
     final provider = await seed(
       tester,
       session: TrainingSession(
@@ -56,12 +61,16 @@ void main() {
 
     expect(find.text('Sharper smashes'), findsOneWidget);
     expect(find.byType(StarRating), findsWidgets);
-    expect(find.textContaining('Intensity null'), findsNothing,
-        reason: 'null intensity must never leak into the UI');
+    expect(
+      find.textContaining('Intensity null'),
+      findsNothing,
+      reason: 'null intensity must never leak into the UI',
+    );
   });
 
-  testWidgets('shows a Goal Achievement Trend section with the chart',
-      (tester) async {
+  testWidgets('shows a Goal Achievement Trend section with the chart', (
+    tester,
+  ) async {
     final provider = await seed(
       tester,
       session: TrainingSession(
@@ -76,10 +85,14 @@ void main() {
 
     await pumpHome(tester, provider);
 
-    expect(find.text('Goal achievement trend', skipOffstage: false),
-        findsOneWidget);
-    expect(find.byType(GoalAchievementChart, skipOffstage: false),
-        findsOneWidget);
+    expect(
+      find.text('Goal achievement trend', skipOffstage: false),
+      findsOneWidget,
+    );
+    expect(
+      find.byType(GoalAchievementChart, skipOffstage: false),
+      findsOneWidget,
+    );
   });
 
   testWidgets('legacy last session still shows its intensity', (tester) async {

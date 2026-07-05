@@ -128,8 +128,7 @@ class HomeScreen extends StatelessWidget {
                               children: [
                                 Text(
                                   '${latest.durationMinutes} min · ',
-                                  style:
-                                      Theme.of(context).textTheme.bodySmall,
+                                  style: Theme.of(context).textTheme.bodySmall,
                                 ),
                                 StarRating(
                                   value: latest.goalAchievementScore,
@@ -151,9 +150,7 @@ class HomeScreen extends StatelessWidget {
                             const SizedBox(height: 6),
                             Text(
                               latest.drills.join(', '),
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall
+                              style: Theme.of(context).textTheme.bodySmall
                                   ?.copyWith(color: AppTheme.textSecondary),
                             ),
                           ],
@@ -169,8 +166,11 @@ class HomeScreen extends StatelessWidget {
                       child: Center(
                         child: Column(
                           children: [
-                            Icon(Icons.fitness_center,
-                                size: 40, color: AppTheme.textSecondary),
+                            Icon(
+                              Icons.fitness_center,
+                              size: 40,
+                              color: AppTheme.textSecondary,
+                            ),
                             SizedBox(height: 8),
                             Text(
                               'No sessions yet.\nTap + to log your first session!',

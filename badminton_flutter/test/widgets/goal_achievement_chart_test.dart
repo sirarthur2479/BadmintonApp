@@ -16,33 +16,38 @@ void main() {
     DatabaseService.dbName = 'goal_chart_test.db';
   });
 
-  testWidgets('renders one bar group per week from provider data',
-      (tester) async {
+  testWidgets('renders one bar group per week from provider data', (
+    tester,
+  ) async {
     final provider = SessionProvider();
     await tester.runAsync(() async {
       await DatabaseService.resetForTests();
       await provider.loadSessions();
-      await provider.addSession(TrainingSession(
-        id: 'chart-1',
-        date: DateTime.now(),
-        durationMinutes: 60,
-        drills: const ['Smash'],
-        sessionGoal: 'goal',
-        goalAchievementScore: 5,
-      ));
+      await provider.addSession(
+        TrainingSession(
+          id: 'chart-1',
+          date: DateTime.now(),
+          durationMinutes: 60,
+          drills: const ['Smash'],
+          sessionGoal: 'goal',
+          goalAchievementScore: 5,
+        ),
+      );
     });
 
-    await tester.pumpWidget(ChangeNotifierProvider.value(
-      value: provider,
-      child: const MaterialApp(
-        home: Scaffold(body: GoalAchievementChart()),
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: provider,
+        child: const MaterialApp(home: Scaffold(body: GoalAchievementChart())),
       ),
-    ));
+    );
 
     final chart = tester.widget<BarChart>(find.byType(BarChart));
-    expect(chart.data.barGroups, hasLength(8),
-        reason: 'default window is 8 weeks');
-    expect(chart.data.maxY, 5,
-        reason: 'goal achievement is a 1–5 scale');
+    expect(
+      chart.data.barGroups,
+      hasLength(8),
+      reason: 'default window is 8 weeks',
+    );
+    expect(chart.data.maxY, 5, reason: 'goal achievement is a 1–5 scale');
   });
 }

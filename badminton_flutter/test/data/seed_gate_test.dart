@@ -23,26 +23,38 @@ void main() {
     final samples = buildSampleSessions();
 
     final withGoals = samples.where((s) => s.sessionGoal.isNotEmpty);
-    expect(withGoals.length, greaterThanOrEqualTo(3),
-        reason: 'a demo install must show off the goal UI');
-    expect(withGoals.map((s) => s.goalAchievementScore).toSet().length,
-        greaterThan(1),
-        reason: 'scores should vary so the trend chart is not flat');
-
-    final withAnswers = samples.where((s) =>
-        decodeReflectionAnswers(s.reflectionAnswersJson).isNotEmpty);
-    expect(withAnswers, isNotEmpty,
-        reason: 'at least one sample carries reflection answers');
     expect(
-        withAnswers.expand(
-            (s) => decodeReflectionAnswers(s.reflectionAnswersJson)).every(
-          (a) => kReflectionQuestions.contains(a.questionKey),
-        ),
-        isTrue,
-        reason: 'sample answers must use the canonical question keys');
+      withGoals.length,
+      greaterThanOrEqualTo(3),
+      reason: 'a demo install must show off the goal UI',
+    );
+    expect(
+      withGoals.map((s) => s.goalAchievementScore).toSet().length,
+      greaterThan(1),
+      reason: 'scores should vary so the trend chart is not flat',
+    );
 
-    expect(samples.every((s) => s.intensity != null), isTrue,
-        reason: 'seeded rows model legacy data and keep their intensity');
+    final withAnswers = samples.where(
+      (s) => decodeReflectionAnswers(s.reflectionAnswersJson).isNotEmpty,
+    );
+    expect(
+      withAnswers,
+      isNotEmpty,
+      reason: 'at least one sample carries reflection answers',
+    );
+    expect(
+      withAnswers
+          .expand((s) => decodeReflectionAnswers(s.reflectionAnswersJson))
+          .every((a) => kReflectionQuestions.contains(a.questionKey)),
+      isTrue,
+      reason: 'sample answers must use the canonical question keys',
+    );
+
+    expect(
+      samples.every((s) => s.intensity != null),
+      isTrue,
+      reason: 'seeded rows model legacy data and keep their intensity',
+    );
   });
 
   test('seeds when flag unset and db empty', () async {
@@ -63,8 +75,11 @@ void main() {
     final seeded = await seedSampleDataIfNeeded(prefs);
 
     expect(seeded, isFalse);
-    expect(await DatabaseService.hasAnySessions(), isFalse,
-        reason: 'deleted demo data must stay deleted across restarts');
+    expect(
+      await DatabaseService.hasAnySessions(),
+      isFalse,
+      reason: 'deleted demo data must stay deleted across restarts',
+    );
   });
 
   test('sets flag after seeding', () async {

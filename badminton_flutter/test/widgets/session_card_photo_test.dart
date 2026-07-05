@@ -18,17 +18,18 @@ const List<int> _kTransparentPng = [
 ];
 
 TrainingSession _session({String? photoPath}) => TrainingSession(
-      id: const Uuid().v4(),
-      date: DateTime(2026, 7, 1),
-      durationMinutes: 60,
-      drills: const ['Footwork'],
-      intensity: 3,
-      photoPath: photoPath,
-    );
+  id: const Uuid().v4(),
+  date: DateTime(2026, 7, 1),
+  durationMinutes: 60,
+  drills: const ['Footwork'],
+  intensity: 3,
+  photoPath: photoPath,
+);
 
 void main() {
-  testWidgets('card shows thumbnail when photoPath resolves to a file',
-      (tester) async {
+  testWidgets('card shows thumbnail when photoPath resolves to a file', (
+    tester,
+  ) async {
     final stored = await tester.runAsync(() async {
       final baseDir = await Directory.systemTemp.createTemp('card_photo');
       addTearDown(() {
@@ -43,23 +44,33 @@ void main() {
     });
 
     await tester.runAsync(() async {
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(body: SessionCard(session: _session(photoPath: stored))),
-      ));
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SessionCard(session: _session(photoPath: stored)),
+          ),
+        ),
+      );
       // Let resolvePath and image IO complete outside the fake-async zone.
       await Future<void>.delayed(const Duration(milliseconds: 100));
     });
     await tester.pump();
 
-    expect(find.byType(Image), findsOneWidget,
-        reason: 'a session with a photo must show a thumbnail');
+    expect(
+      find.byType(Image),
+      findsOneWidget,
+      reason: 'a session with a photo must show a thumbnail',
+    );
   });
 
-  testWidgets('card renders without photo section when photoPath is null',
-      (tester) async {
-    await tester.pumpWidget(MaterialApp(
-      home: Scaffold(body: SessionCard(session: _session())),
-    ));
+  testWidgets('card renders without photo section when photoPath is null', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: SessionCard(session: _session())),
+      ),
+    );
 
     expect(find.byType(Image), findsNothing);
   });
