@@ -11,6 +11,7 @@ void main() {
   setUpAll(() {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
+    DatabaseService.dbName = 'seed_gate_test.db';
   });
 
   setUp(() async {

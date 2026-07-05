@@ -10,6 +10,7 @@ void main() {
   setUpAll(() {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
+    DatabaseService.dbName = 'database_service_test.db';
   });
 
   setUp(() async {

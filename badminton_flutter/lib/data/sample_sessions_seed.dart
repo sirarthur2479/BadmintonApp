@@ -1,13 +1,22 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import '../models/session.dart';
+import '../services/database_service.dart';
 
 const String kSampleDataSeededKey = 'sample_data_seeded';
 
 /// Seeds the demo sessions at most once per install.
 /// Returns true when it seeded.
+///
+/// The prefs flag — not DB emptiness — is the gate: a user who deletes the
+/// demo data must not have it resurrected on the next launch.
 Future<bool> seedSampleDataIfNeeded(SharedPreferences prefs) async {
-  return false; // stub — behaviour driven by seed_gate_test.dart
+  if (prefs.getBool(kSampleDataSeededKey) ?? false) return false;
+  if (!await DatabaseService.hasAnySessions()) {
+    await DatabaseService.insertSessions(buildSampleSessions());
+  }
+  await prefs.setBool(kSampleDataSeededKey, true);
+  return true;
 }
 
 List<TrainingSession> buildSampleSessions() {

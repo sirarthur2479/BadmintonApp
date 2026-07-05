@@ -19,9 +19,13 @@ class DatabaseService {
     return _db!;
   }
 
+  /// Overridable so parallel test isolates don't share one DB file.
+  @visibleForTesting
+  static String dbName = 'badminton.db';
+
   static Future<Database> _initDb() async {
     final dbPath = await getDatabasesPath();
-    final path = join(dbPath, 'badminton.db');
+    final path = join(dbPath, dbName);
 
     return openDatabase(
       path,
@@ -72,7 +76,7 @@ class DatabaseService {
   static Future<void> resetForTests() async {
     await _db?.close();
     _db = null;
-    final path = join(await getDatabasesPath(), 'badminton.db');
+    final path = join(await getDatabasesPath(), dbName);
     await deleteDatabase(path);
   }
 
