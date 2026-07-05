@@ -137,8 +137,9 @@ As specced: click the 4 court corners in a paused frame, build a homography with
 2. **Integration with the existing app:** `badminton_flutter` match logs
    reference video files and the docs plan a "Markdown export for AI analysis".
    The coach report should use a compatible Markdown structure so it can be
-   attached to a match log. Writing metrics into the app's DB is explicitly
-   phase 2 — out of scope here.
+   attached to a match log. Writing metrics into the app's DB and in-app
+   WiFi upload to a home analysis server are explicitly phase 2 — tracked as
+   pool idea #6 ("BadmintonTrack-12 in-app integration"), out of scope here.
 3. **Original "Deliverables to Generate Now" (scaffold + 3 complete scripts) is
    superseded** — implementation goes through /plan → /tdd task-by-task, tests
    first, instead of one big generated scaffold.
