@@ -16,6 +16,7 @@ this order unless the owner overrides.
 | 5 | Self-hosted backend (accounts/players API) | Already specced in docs; gives the app a home server — the natural host for #6's analysis service |
 | 6 | BadmintonTrack-12 in-app integration (WiFi upload → home server) | Depends on #4 (pipeline) and benefits from #5 (server + auth); the end-state UX |
 | 7 | Flutter app quality-of-life batch | Anytime filler; no dependencies, lower value per item |
+| 8 | Audio session logging (local STT for spoken notes) | Anytime filler; no dependencies, small/self-contained, reuses a proven external pattern |
 
 ---
 
@@ -112,3 +113,22 @@ this order unless the owner overrides.
   technique library text search + drill↔technique linking, consolidated delete
   dialog, dark mode, achievements/personal bests, training reminders,
   per-opponent record. Split at /plan time; not all need to ship together.
+
+## 8. Audio session logging — local STT for spoken session notes
+
+- **Added:** 2026-07-05
+- **Status:**
+- **Source:** `research/local-llm-voice-chatbot-reference.md` (ported from a
+  sibling project's local-LLM voice chatbot investigation)
+- **Summary:** Let the parent/coach speak notes during or after a session
+  instead of typing them, transcribed fully locally (ffmpeg → 16kHz mono WAV →
+  `faster-whisper`, CPU `int8`, no cloud) and attached to the session log.
+  Reuses a small, proven, dependency-light pattern (`utils/stt.py` in the
+  reference doc) rather than building STT from scratch. Independent of
+  BadmintonTrack-12 (audio only, no video/CV) — could land in either
+  `badminton_flutter` or `badminton_track`.
+- **Open questions:** which app owns it — a recording button in
+  `badminton_flutter`'s session UI, or a small utility in `badminton_track`?
+  Transcribe on-device (phone) or record-then-transcribe on the owner's
+  computer? Whole-utterance transcription (as in the reference) is simplest
+  for MVP — no VAD/chunking needed unless notes run long.
