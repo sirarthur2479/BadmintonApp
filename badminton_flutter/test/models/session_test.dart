@@ -42,8 +42,7 @@ void main() {
       expect(restored.notes, '');
     });
 
-    test('drills with multiple entries survive the comma-join round-trip',
-        () {
+    test('drills with multiple entries survive the storage round-trip', () {
       final session = TrainingSession(
         id: 'session-3',
         date: DateTime(2026, 7, 12),
