@@ -147,3 +147,78 @@ def test_distance_to_base_simple_geometry():
 
     np.testing.assert_allclose(dist.iloc[:2], [5.0, 0.0])
     assert np.isnan(dist.iloc[2])
+
+
+def episode(start: float, peak: float, end: float, d: float = 2.0) -> metrics.Episode:
+    return metrics.Episode(start_t=start, end_t=end, peak_t=peak, peak_distance_m=d)
+
+
+def test_summary_stats_over_episodes():
+    episodes = [
+        episode(0.0, 0.2, 0.6),  # latency 0.4
+        episode(1.0, 1.2, 1.8),  # latency 0.6
+        episode(2.0, 2.2, 3.0),  # latency 0.8
+    ]
+
+    stats = metrics.episode_summary(episodes)
+
+    assert stats.count == 3
+    assert stats.mean_latency_s == pytest.approx(0.6)
+    assert stats.median_latency_s == pytest.approx(0.6)
+    assert stats.max_latency_s == pytest.approx(0.8)
+
+
+def test_summary_trend_slope_detects_slowing_recovery():
+    # Latencies 0.4, 0.6, 0.8 -> +0.2 s per episode: recovery is slowing.
+    episodes = [
+        episode(0.0, 0.2, 0.6),
+        episode(1.0, 1.2, 1.8),
+        episode(2.0, 2.2, 3.0),
+    ]
+
+    stats = metrics.episode_summary(episodes)
+
+    assert stats.trend_slope_s_per_episode == pytest.approx(0.2)
+
+
+def test_summary_of_fewer_than_two_episodes_has_nan_slope():
+    stats = metrics.episode_summary([episode(0.0, 0.2, 0.6)])
+
+    assert stats.count == 1
+    assert np.isnan(stats.trend_slope_s_per_episode)
+
+
+def test_session_aggregates_total_distance_and_coverage():
+    df = telemetry(
+        [
+            (0.0, 0.0, 0.0),
+            (0.1, 3.0, 4.0),  # 5 m
+            (0.2, 3.0, 4.0),  # 0 m
+            (0.3, None, None),
+        ]
+    )
+
+    agg = metrics.session_aggregates(df)
+
+    assert agg["total_distance_m"] == pytest.approx(5.0)
+    assert agg["duration_s"] == pytest.approx(0.3)
+    assert agg["detection_coverage"] == pytest.approx(0.75)
+
+
+def test_empty_and_all_nan_input_safe():
+    empty = telemetry([])
+    all_nan = telemetry([(0.0, None, None), (0.1, None, None)])
+
+    assert metrics.detect_episodes(empty, base_xy=BASE, radius_m=1.0) == []
+    assert metrics.detect_episodes(all_nan, base_xy=BASE, radius_m=1.0) == []
+
+    stats = metrics.episode_summary([])
+    assert stats.count == 0
+    assert np.isnan(stats.mean_latency_s)
+
+    agg = metrics.session_aggregates(all_nan)
+    assert agg["total_distance_m"] == 0.0
+    assert agg["detection_coverage"] == 0.0
+
+    filled, gaps = metrics.interpolate_gaps(empty, max_gap_s=0.5)
+    assert filled.empty and gaps == []
