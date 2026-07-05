@@ -26,6 +26,9 @@ class DatabaseService {
     return openDatabase(
       path,
       version: 1,
+      // sqflite leaves foreign keys OFF by default; without this the
+      // matches-table ON DELETE CASCADE is inert.
+      onConfigure: (db) => db.execute('PRAGMA foreign_keys = ON'),
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE sessions (
