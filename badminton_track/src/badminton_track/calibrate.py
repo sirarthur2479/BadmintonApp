@@ -118,3 +118,70 @@ def project_feet(h: np.ndarray, bboxes_xyxy: np.ndarray) -> np.ndarray:
     bboxes = np.asarray(bboxes_xyxy, dtype=np.float64).reshape(-1, 4)
     feet = np.stack([feet_point(b) for b in bboxes])
     return project_points(h, feet)
+
+
+SANITY_WARN_PX = 20.0
+
+
+def sanity_check(calib: Calibration, clicked_service_pts_px: np.ndarray) -> float:
+    """Max reprojection error (px) of the 2 clicked front-service points.
+
+    The true front-service-line × sideline intersections are reprojected
+    from the court model into pixel space through the inverse homography and
+    compared against where the user clicked them. A large error means the
+    corner clicks were bad — caught now, not as silently wrong metrics.
+    """
+    clicked = np.asarray(clicked_service_pts_px, dtype=np.float64).reshape(2, 2)
+    h_inv = np.linalg.inv(calib.h)
+    expected = project_points(h_inv, court.front_service_intersections_m())
+    return float(np.linalg.norm(clicked - expected, axis=1).max())
+
+
+def check_or_warn(
+    calib: Calibration,
+    clicked_service_pts_px: np.ndarray,
+    threshold_px: float = SANITY_WARN_PX,
+) -> str | None:
+    """None when the calibration passes; a human-readable warning otherwise."""
+    err = sanity_check(calib, clicked_service_pts_px)
+    if err <= threshold_px:
+        return None
+    return (
+        f"calibration '{calib.name}' reprojection error {err:.1f} px exceeds "
+        f"{threshold_px:.0f} px — re-click the court corners"
+    )
+
+
+def pick_corners(video_path: Path, frame_idx: int = 0) -> np.ndarray:
+    """Interactive corner picker (manual use only — not unit-tested).
+
+    Opens the given frame in an OpenCV window; click the 4 court corners in
+    the documented order (far-left, far-right, near-right, near-left), then
+    press any key. Returns the clicked (4, 2) pixel array.
+    """
+    import cv2
+
+    cap = cv2.VideoCapture(str(video_path))
+    cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
+    ok, frame = cap.read()
+    cap.release()
+    if not ok:
+        raise CalibrationError(f"could not read frame {frame_idx} of {video_path}")
+
+    clicks: list[list[float]] = []
+
+    def on_mouse(event: int, x: int, y: int, *_args) -> None:
+        if event == cv2.EVENT_LBUTTONDOWN and len(clicks) < 4:
+            clicks.append([float(x), float(y)])
+            cv2.circle(frame, (x, y), 6, (0, 255, 0), -1)
+            cv2.imshow("pick corners", frame)
+
+    cv2.imshow("pick corners", frame)
+    cv2.setMouseCallback("pick corners", on_mouse)
+    while len(clicks) < 4:
+        if cv2.waitKey(50) == 27:  # Esc aborts
+            break
+    cv2.destroyAllWindows()
+    if len(clicks) != 4:
+        raise CalibrationError("corner picking aborted before 4 clicks")
+    return np.asarray(clicks, dtype=np.float64)
