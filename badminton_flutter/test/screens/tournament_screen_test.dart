@@ -62,8 +62,14 @@ void main() {
 
     await tester.runAsync(() async {
       await tester.tap(find.text('Delete'));
-      await Future<void>.delayed(const Duration(milliseconds: 100));
+      await tester.pump();
+      // Real-async window so the dialog pop resolves and the DB call
+      // (running on the ffi isolate) can complete.
+      await Future<void>.delayed(const Duration(milliseconds: 300));
     });
+    await tester.pumpAndSettle();
+    await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 300)));
     await tester.pumpAndSettle();
 
     expect(provider.tournaments, isEmpty);
@@ -74,9 +80,16 @@ void main() {
     final provider = await seed(tester);
     await pumpScreen(tester, provider);
 
+    // The match row's trailing icon — scope to the ListTile so the
+    // "Delete tournament" footer button's icon can't be matched.
+    final matchDeleteIcon = find.descendant(
+      of: find.widgetWithText(ListTile, 'vs A. Rival'),
+      matching: find.byIcon(Icons.delete_outline),
+    );
     await tester.runAsync(() async {
-      await tester.tap(find.byIcon(Icons.delete_outline));
-      await Future<void>.delayed(const Duration(milliseconds: 100));
+      await tester.tap(matchDeleteIcon);
+      await tester.pump();
+      await Future<void>.delayed(const Duration(milliseconds: 300));
     });
     await tester.pumpAndSettle();
     expect(find.text('Delete match?'), findsOneWidget,
