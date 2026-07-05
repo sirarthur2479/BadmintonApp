@@ -28,6 +28,14 @@ class SessionProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> updateSession(TrainingSession session) async {
+    await DatabaseService.updateSession(session);
+    _sessions = [
+      for (final s in _sessions) s.id == session.id ? session : s,
+    ]..sort((a, b) => b.date.compareTo(a.date));
+    notifyListeners();
+  }
+
   Future<void> deleteSession(String id) async {
     final photoPath = _sessions
         .where((s) => s.id == id)
