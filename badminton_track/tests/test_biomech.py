@@ -156,3 +156,76 @@ def test_windows_slice_series_by_time():
     sliced = biomech.slice_window(df, window)
 
     np.testing.assert_allclose(sliced["angle_deg"], [20.0, 30.0, 40.0])
+
+
+def test_iter_pose_frames_raises_extras_missing_without_mediapipe(tmp_path):
+    video = tmp_path / "clip.mp4"
+    video.touch()
+    from badminton_track.config import BiomechConfig
+
+    with pytest.raises(biomech.ExtrasMissingError, match="biomech"):
+        next(biomech.iter_pose_frames(video, BiomechConfig()))
+
+
+def test_run_biomech_summary_min_max_per_window(tmp_path, monkeypatch):
+    from badminton_track.config import BiomechConfig
+
+    # 1 second of frames: elbow straight except a bend to 90° at t=0.5.
+    frames = []
+    for i in range(60):
+        wrist = (0.1, 0.1) if i == 30 else (0.2, 0.0)
+        frames.append(
+            pose_frame(i / 60, {12: (0.0, 0.0), 14: (0.1, 0.0), 16: wrist})
+        )
+    monkeypatch.setattr(biomech, "iter_pose_frames", lambda video, cfg: iter(frames))
+
+    cfg = BiomechConfig(
+        camera_side="right",
+        data_dir=tmp_path / "data",
+        windows=[
+            {
+                "name": "smash-1",
+                "start_s": 0.0,
+                "end_s": 1.0,
+                "angle": "smash_extension",
+            }
+        ],
+    )
+
+    summary = biomech.run_biomech(tmp_path / "side.mp4", cfg)
+
+    assert len(summary) == 1
+    row = summary.iloc[0]
+    assert row["window"] == "smash-1"
+    assert row["min_deg"] == pytest.approx(90.0, abs=1e-6)
+    assert row["max_deg"] == pytest.approx(180.0, abs=1e-6)
+    assert (tmp_path / "data" / "side-biomech.csv").exists()
+
+
+def test_run_biomech_flags_oblique_window(tmp_path, monkeypatch):
+    from badminton_track.config import BiomechConfig
+
+    frames = [
+        pose_frame(
+            i / 60,
+            {12: (0.0, 0.0), 14: (0.1, 0.0), 16: (0.2, 0.0)},
+            z={12: 0.0, 14: 0.3, 16: 0.6},
+        )
+        for i in range(30)
+    ]
+    monkeypatch.setattr(biomech, "iter_pose_frames", lambda video, cfg: iter(frames))
+    cfg = BiomechConfig(
+        data_dir=tmp_path / "data",
+        windows=[
+            {
+                "name": "w",
+                "start_s": 0.0,
+                "end_s": 0.5,
+                "angle": "smash_extension",
+            }
+        ],
+    )
+
+    summary = biomech.run_biomech(tmp_path / "side.mp4", cfg)
+
+    assert summary.iloc[0]["warning"], "oblique view must surface in the summary"

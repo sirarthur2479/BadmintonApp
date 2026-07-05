@@ -76,13 +76,38 @@ def test_cli_analyze_extras_missing_exits_2(workspace, monkeypatch, capsys):
     assert "badminton-track[footwork]" in capsys.readouterr().err
 
 
-def test_cli_analyze_biomech_placeholder_message(workspace, capsys):
-    rc = cli.main(
-        ["analyze", "clip.mp4", "--mode", "biomech", "--calibration", "setup1"]
+def test_cli_analyze_biomech_writes_summary(workspace, monkeypatch):
+    from badminton_track import biomech
+
+    summary = pd.DataFrame(
+        [
+            {
+                "window": "smash-1",
+                "angle": "smash_extension",
+                "n_samples": 60,
+                "min_deg": 90.0,
+                "max_deg": 180.0,
+                "warning": "",
+            }
+        ]
     )
+    monkeypatch.setattr(biomech, "run_biomech", lambda video, cfg: summary)
+
+    rc = cli.main(["analyze", "clip.mp4", "--mode", "biomech"])
+
+    assert rc == 0
+    out = workspace / "output" / "clip-biomech-summary.json"
+    assert out.exists()
+    payload = json.loads(out.read_text())
+    assert payload["windows"][0]["window"] == "smash-1"
+    assert payload["windows"][0]["min_deg"] == 90.0
+
+
+def test_cli_analyze_footwork_requires_calibration_flag(workspace, capsys):
+    rc = cli.main(["analyze", "clip.mp4", "--mode", "footwork"])
 
     assert rc == 2
-    assert "TASK-019" in capsys.readouterr().err
+    assert "--calibration" in capsys.readouterr().err
 
 
 def test_cli_calibrate_saves_json_and_runs_sanity_check(
