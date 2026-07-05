@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../models/player_profile.dart';
 import '../../providers/profile_provider.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/profile_avatar.dart';
 import 'progress_screen.dart';
 import 'tournament_screen.dart';
 
@@ -111,15 +112,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               onTap: _editing ? _pickPhoto : null,
               child: Stack(
                 children: [
-                  CircleAvatar(
-                    radius: 48,
-                    backgroundColor: const Color(0xFFE8F5E9),
-                    backgroundImage:
-                        _photoPath != null ? NetworkImage(_photoPath!) : null,
-                    child: _photoPath == null
-                        ? const Icon(Icons.person, size: 48, color: AppTheme.primary)
-                        : null,
-                  ),
+                  ProfileAvatar(photoPath: _photoPath),
                   if (_editing)
                     Positioned(
                       bottom: 0,
