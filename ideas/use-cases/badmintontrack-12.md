@@ -1,6 +1,6 @@
 # Use case: BadmintonTrack-12
 
-**Status:** draft
+**Status:** in progress
 **Created:** 2026-07-05
 **Owner idea:** CV + local-LLM analysis of training/match footage of a 12-year-old
 regional-level badminton player.
