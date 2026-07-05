@@ -31,6 +31,9 @@ full = [
 ]
 dev = ["pytest>=8.0"]
 
+[project.scripts]
+badminton-track = "badminton_track.cli:main"
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/badminton_track"]
 
