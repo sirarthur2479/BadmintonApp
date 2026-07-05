@@ -134,3 +134,29 @@ def test_lock_target_empty_input_returns_empty_telemetry():
     assert isinstance(df, pd.DataFrame)
     assert list(df.columns) == ["t", "x_m", "y_m"]
     assert df.empty
+
+
+def test_iter_tracks_raises_extras_missing_without_ultralytics(tmp_path):
+    # ultralytics is not installed in the test environment by design.
+    video = tmp_path / "clip.mp4"
+    video.touch()
+
+    with pytest.raises(footwork.ExtrasMissingError, match="footwork"):
+        next(footwork.iter_tracks(video, CFG))
+
+
+def test_run_footwork_writes_csv_and_returns_telemetry(tmp_path, monkeypatch):
+    frames = [
+        (0.0, [near(1)]),
+        (0.1, [near(1, 3.5, 10.5)]),
+    ]
+    monkeypatch.setattr(footwork, "iter_tracks", lambda video, cfg: iter(frames))
+    cfg = CFG.model_copy(update={"data_dir": tmp_path / "data"})
+
+    df = footwork.run_footwork(tmp_path / "rally.mp4", IDENTITY_CALIB, cfg)
+
+    out = tmp_path / "data" / "rally-telemetry.csv"
+    assert out.exists()
+    assert len(df) == 2
+    reloaded = pd.read_csv(out)
+    np.testing.assert_allclose(reloaded["x_m"], df["x_m"], atol=1e-9)
