@@ -136,7 +136,11 @@ def build_summary(
     return summary
 
 
-def generate_coach_report(summary: dict, cfg: "CoachConfig") -> CoachReport | None:
+def generate_coach_report(
+    summary: dict,
+    cfg: "CoachConfig",
+    extra_instruction: str | None = None,
+) -> CoachReport | None:
     """One schema-constrained chat call to the local Ollama server.
 
     Returns None when the server is down or the model isn't pulled — the
@@ -158,12 +162,15 @@ def generate_coach_report(summary: dict, cfg: "CoachConfig") -> CoachReport | No
         ) from exc
 
     client = ollama.Client(host=cfg.ollama_host)
+    user_content = json.dumps(summary)
+    if extra_instruction:
+        user_content += "\n\n" + extra_instruction
     try:
         resp = client.chat(
             model=cfg.model_tag,
             messages=[
                 {"role": "system", "content": PERSONA_PROMPT},  # stable prefix
-                {"role": "user", "content": json.dumps(summary)},
+                {"role": "user", "content": user_content},
             ],
             format=CoachReport.model_json_schema(),
             options={"temperature": 0.4, "num_ctx": 8192},
@@ -183,3 +190,110 @@ def generate_coach_report(summary: dict, cfg: "CoachConfig") -> CoachReport | No
         else:
             log.warning("Ollama error %s", exc)
         return None
+
+
+# Body-commentary screen: the persona rules forbid it, this lint enforces it.
+_BANNED_TERMS = [
+    "weight",
+    "fat",
+    "skinny",
+    "chubby",
+    "thin",
+    "taller",
+    "shorter",
+    "height",
+    "body shape",
+]
+
+
+def lint_report(report: CoachReport, require_safety_notes: bool) -> list[str]:
+    """Deterministic post-generation checks; empty list means clean."""
+    violations: list[str] = []
+    texts = [
+        *report.highlights,
+        report.encouragement,
+        *[
+            " ".join([f.fact, f.why_it_matters, *f.drills, f.safety_note])
+            for f in report.findings
+        ],
+    ]
+    for text in texts:
+        lowered = text.lower()
+        for term in _BANNED_TERMS:
+            if term in lowered:
+                violations.append(
+                    f'banned body-commentary term "{term}" in: "{text[:80]}"'
+                )
+    if require_safety_notes:
+        for finding in report.findings:
+            if not finding.safety_note.strip():
+                violations.append(
+                    f'finding is missing its safety note: "{finding.fact[:80]}"'
+                )
+    return violations
+
+
+def _facts_appendix(summary: dict) -> list[str]:
+    lines = ["", "### Session numbers", ""]
+    lines += [f"- {fact}" for fact in summary.get("facts", [])]
+    return lines
+
+
+def render_markdown(report: CoachReport, summary: dict) -> str:
+    """Deterministic Markdown in the Flutter export style (## / ** / ---)."""
+    lines = ["## Coach Report", ""]
+    if report.highlights:
+        lines += ["### Highlights", ""]
+        lines += [f"- {h}" for h in report.highlights]
+        lines.append("")
+    for finding in report.findings:
+        lines += [
+            f"**Finding:** {finding.fact}",
+            f"**Why it matters:** {finding.why_it_matters}",
+            "**Drills to try:**",
+            *[f"- {d}" for d in finding.drills],
+        ]
+        if finding.safety_note.strip():
+            lines.append(f"*{finding.safety_note.strip()}*")
+        lines.append("")
+    lines += [f"**Keep going:** {report.encouragement}"]
+    lines += _facts_appendix(summary)
+    lines += ["", "---", ""]
+    return "\n".join(lines)
+
+
+def metrics_only_markdown(summary: dict) -> str:
+    """The graceful-degradation body: facts, no narrative."""
+    lines = [
+        "## Coach Report",
+        "",
+        "_The local coach model wasn't available, so here are the measured_",
+        "_facts from this session — the numbers speak for themselves._",
+    ]
+    lines += _facts_appendix(summary)
+    lines += ["", "---", ""]
+    return "\n".join(lines)
+
+
+def produce_report(summary: dict, cfg: "CoachConfig") -> str:
+    """Narrative markdown with one lint-retry, else the metrics-only report."""
+    require_safety = "biomech" in summary
+    report = generate_coach_report(summary, cfg)
+    if report is None:
+        return metrics_only_markdown(summary)
+    violations = lint_report(report, require_safety)
+    if not violations:
+        return render_markdown(report, summary)
+    retry = generate_coach_report(
+        summary,
+        cfg,
+        extra_instruction=(
+            "Your previous draft broke these rules: "
+            + "; ".join(violations)
+            + ". Rewrite the report and follow every rule."
+        ),
+    )
+    if retry is not None and not lint_report(retry, require_safety):
+        return render_markdown(retry, summary)
+    log.warning("coach narrative failed lint twice; falling back to metrics-only")
+    return metrics_only_markdown(summary)

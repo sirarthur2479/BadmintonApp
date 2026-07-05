@@ -14,7 +14,9 @@ import math
 import sys
 from pathlib import Path
 
-from . import biomech, calibrate, courtmap, footwork, metrics
+import pandas as pd
+
+from . import biomech, calibrate, coach, courtmap, footwork, metrics
 from .config import TrackConfig, load_config
 from .errors import ExtrasMissingError
 
@@ -41,6 +43,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="camera-setup name (required for footwork mode)",
     )
+
+    rep = sub.add_parser(
+        "report", help="coach report from a session's analysis outputs"
+    )
+    rep.add_argument("stem", help="video stem the analyses were run on")
     return parser
 
 
@@ -142,12 +149,52 @@ def _cmd_analyze_biomech(args: argparse.Namespace, cfg: TrackConfig) -> int:
     return 0
 
 
+def _cmd_report(args: argparse.Namespace, cfg: TrackConfig) -> int:
+    fw_path = OUTPUT_DIR / f"{args.stem}-summary.json"
+    bm_path = OUTPUT_DIR / f"{args.stem}-biomech-summary.json"
+    if not fw_path.exists() and not bm_path.exists():
+        print(
+            f"no analysis outputs for '{args.stem}' under {OUTPUT_DIR}/ — run "
+            f"`badminton-track analyze <video> --mode footwork|biomech` first",
+            file=sys.stderr,
+        )
+        return 2
+
+    def denull(d: dict) -> dict:
+        return {k: (math.nan if v is None else v) for k, v in d.items()}
+
+    stats = aggregates = None
+    if fw_path.exists():
+        payload = json.loads(fw_path.read_text())
+        stats = metrics.EpisodeStats(**denull(payload["episodes"]))
+        aggregates = denull(payload["session"])
+    biomech_rows = None
+    if bm_path.exists():
+        windows = json.loads(bm_path.read_text())["windows"]
+        if windows:
+            biomech_rows = pd.DataFrame(windows)
+
+    summary = coach.build_summary(stats, aggregates, biomech_rows)
+    md = coach.produce_report(summary, cfg.coach)
+    if md == coach.metrics_only_markdown(summary):
+        print(
+            "coach model unavailable — wrote a metrics-only report",
+            file=sys.stderr,
+        )
+    out = OUTPUT_DIR / f"{args.stem}-coach-report.md"
+    out.write_text(md)
+    print(f"coach report written to {out}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     cfg = load_config(args.config)
     try:
         if args.command == "calibrate":
             return _cmd_calibrate(args, cfg)
+        if args.command == "report":
+            return _cmd_report(args, cfg)
         if args.mode == "biomech":
             return _cmd_analyze_biomech(args, cfg)
         return _cmd_analyze_footwork(args, cfg)
