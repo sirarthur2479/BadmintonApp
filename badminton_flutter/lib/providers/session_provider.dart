@@ -10,9 +10,7 @@ class SessionProvider extends ChangeNotifier {
 
   Future<void> loadSessions() async {
     if (_loaded) return;
-    _sessions = await DatabaseService.getSessions();
-    _loaded = true;
-    notifyListeners();
+    await refresh();
   }
 
   /// Reloads from the DB unconditionally (pull-to-refresh).
