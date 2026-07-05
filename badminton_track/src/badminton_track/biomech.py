@@ -86,3 +86,57 @@ def slice_window(df: pd.DataFrame, window: AnalysisWindow) -> pd.DataFrame:
     """Rows of an angle series inside a window (inclusive bounds)."""
     mask = (df["t"] >= window.start_s) & (df["t"] <= window.end_s)
     return df.loc[mask].reset_index(drop=True)
+
+
+def smooth_series(series: np.ndarray, fs: float, cutoff_hz: float) -> np.ndarray:
+    """Zero-phase 4th-order Butterworth low-pass.
+
+    `filtfilt` is mandatory over a causal filter: causal filtering adds
+    phase lag that shifts every measured angle and corrupts peak timing.
+    `fs` must be the EFFECTIVE sample rate (60 Hz here — no striding in
+    this module). Internal NaNs are linearly interpolated first; series too
+    short for the filter's padding come back unchanged.
+    """
+    from scipy.signal import butter, filtfilt
+
+    series = np.asarray(series, dtype=np.float64)
+    filled = (
+        pd.Series(series)
+        .interpolate(method="linear", limit_direction="both")
+        .to_numpy()
+    )
+    b, a = butter(N=4, Wn=cutoff_hz, btype="low", fs=fs)
+    padlen = 3 * max(len(a), len(b))  # filtfilt's default requirement
+    if len(filled) <= padlen:
+        return series
+    return filtfilt(b, a, filled)
+
+
+def oblique_view_warning(
+    frames: list[PoseFrame],
+    triplet: tuple[int, int, int],
+    threshold: float = 0.15,
+) -> str | None:
+    """Warn when landmark depth spread says the plane isn't camera-parallel.
+
+    2D angles are only valid for movement roughly parallel to the camera;
+    a large median z-spread across the triplet means the view is oblique
+    and every angle in the window is suspect.
+    """
+    spreads = []
+    for frame in frames:
+        lm = frame.world_landmarks if frame.world_landmarks is not None else frame.landmarks
+        if lm is None:
+            continue
+        z = lm[list(triplet), 2]
+        spreads.append(float(z.max() - z.min()))
+    if not spreads:
+        return None
+    median_spread = float(np.median(spreads))
+    if median_spread <= threshold:
+        return None
+    return (
+        f"movement plane looks oblique to the camera (median z-spread "
+        f"{median_spread:.2f} > {threshold:.2f}) — 2D angles are unreliable; "
+        f"re-film with the camera parallel to the movement"
+    )
