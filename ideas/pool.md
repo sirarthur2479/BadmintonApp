@@ -22,7 +22,7 @@ this order unless the owner overrides.
 ## 1. Flutter app bug batch (2026-07-05 review, B1–B8)
 
 - **Added:** 2026-07-05
-- **Status:**
+- **Status:** in progress (TASK-001 → TASK-004, use-case: `ideas/use-cases/flutter-bug-batch.md`)
 - **Source:** `badminton_flutter/docs/codebase-review-2026-07-05.md` §1
 - **Summary:** Eight correctness fixes: device-broken profile photo
   (NetworkImage on a file path), profile form blank on first visit (async load
