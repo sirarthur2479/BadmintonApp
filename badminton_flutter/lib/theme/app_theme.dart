@@ -114,6 +114,14 @@ class AppTheme {
     return intensityHigh;
   }
 
+  /// Goal-achievement scale: low scores read as "missed" (red) up to
+  /// "nailed it" (green) — the inverse mood of the intensity scale.
+  static Color goalScoreColor(int score) {
+    if (score <= 2) return intensityHigh; // red
+    if (score <= 3) return intensityMid; // amber
+    return primary; // green
+  }
+
   static String difficultyLabel(String difficulty) {
     switch (difficulty) {
       case 'beginner':

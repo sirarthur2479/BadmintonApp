@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../models/session.dart';
 import '../services/photo_store.dart';
 import '../theme/app_theme.dart';
+import 'star_rating.dart';
 
 class SessionCard extends StatelessWidget {
   final TrainingSession session;
@@ -34,7 +35,17 @@ class SessionCard extends StatelessWidget {
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                 ),
-                if (session.intensity != null)
+                // Goal-based sessions get achievement stars; older sessions
+                // keep their legacy intensity dots.
+                if (session.sessionGoal.isNotEmpty)
+                  StarRating(
+                    value: session.goalAchievementScore,
+                    size: 14,
+                    color: AppTheme.goalScoreColor(
+                      session.goalAchievementScore,
+                    ),
+                  )
+                else if (session.intensity != null)
                   _IntensityDots(intensity: session.intensity!),
                 if (onEdit != null) ...[
                   const SizedBox(width: 8),
@@ -75,6 +86,27 @@ class SessionCard extends StatelessWidget {
                 ),
               ],
             ),
+            if (session.sessionGoal.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  const Icon(
+                    Icons.flag_outlined,
+                    size: 14,
+                    color: AppTheme.primary,
+                  ),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      session.sessionGoal,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ],
             if (session.drills.isNotEmpty) ...[
               const SizedBox(height: 8),
               Wrap(
@@ -88,6 +120,24 @@ class SessionCard extends StatelessWidget {
                       ),
                     )
                     .toList(),
+              ),
+            ],
+            if (session.playerRemarks.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text(
+                'Player: ${session.playerRemarks}',
+                style: Theme.of(context).textTheme.bodySmall,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+            if (session.coachRemarks.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Coach: ${session.coachRemarks}',
+                style: Theme.of(context).textTheme.bodySmall,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
             ],
             if (session.notes.isNotEmpty) ...[
