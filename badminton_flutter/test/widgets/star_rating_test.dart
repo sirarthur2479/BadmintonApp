@@ -7,9 +7,7 @@ Widget _app(Widget child) => MaterialApp(home: Scaffold(body: child));
 
 void main() {
   testWidgets('renders the current value as filled stars', (tester) async {
-    await tester.pumpWidget(
-      _app(StarRating(value: 3, onChanged: (_) {})),
-    );
+    await tester.pumpWidget(_app(StarRating(value: 3, onChanged: (_) {})));
 
     expect(find.byIcon(Icons.star), findsNWidgets(3));
     expect(find.byIcon(Icons.star_border), findsNWidgets(2));
@@ -36,7 +34,10 @@ void main() {
     await tester.tap(find.byIcon(Icons.star).first);
     await tester.pump();
 
-    expect(find.byIcon(Icons.star), findsNWidgets(4),
-        reason: 'value must not change without a callback');
+    expect(
+      find.byIcon(Icons.star),
+      findsNWidgets(4),
+      reason: 'value must not change without a callback',
+    );
   });
 }

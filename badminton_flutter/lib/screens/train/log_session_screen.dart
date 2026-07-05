@@ -4,10 +4,12 @@ import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import '../../models/reflection_data.dart';
 import '../../models/session.dart';
 import '../../providers/session_provider.dart';
 import '../../services/photo_store.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/star_rating.dart';
 
 class LogSessionScreen extends StatefulWidget {
   /// When non-null the screen edits this session instead of creating one.
@@ -24,7 +26,14 @@ class _LogSessionScreenState extends State<LogSessionScreen> {
   int _duration = 60;
   final Set<String> _selectedDrills = {};
   late final List<String> _drillOptions;
-  int _intensity = 3;
+  final _goalController = TextEditingController();
+  final _playerRemarksController = TextEditingController();
+  final _coachRemarksController = TextEditingController();
+  final List<TextEditingController> _answerControllers = List.generate(
+    kReflectionQuestions.length,
+    (_) => TextEditingController(),
+  );
+  int _goalScore = 3;
   final _notesController = TextEditingController();
   String? _photoPath;
   bool _saving = false;
@@ -46,14 +55,29 @@ class _LogSessionScreenState extends State<LogSessionScreen> {
       _date = session.date;
       _duration = session.durationMinutes;
       _selectedDrills.addAll(session.drills);
-      _intensity = session.intensity ?? 3;
       _notesController.text = session.notes;
       _photoPath = session.photoPath;
+      _goalController.text = session.sessionGoal;
+      _goalScore = session.goalAchievementScore;
+      _playerRemarksController.text = session.playerRemarks;
+      _coachRemarksController.text = session.coachRemarks;
+      for (final answer in decodeReflectionAnswers(
+        session.reflectionAnswersJson,
+      )) {
+        final i = kReflectionQuestions.indexOf(answer.questionKey);
+        if (i >= 0) _answerControllers[i].text = answer.answer;
+      }
     }
   }
 
   @override
   void dispose() {
+    _goalController.dispose();
+    _playerRemarksController.dispose();
+    _coachRemarksController.dispose();
+    for (final c in _answerControllers) {
+      c.dispose();
+    }
     _notesController.dispose();
     super.dispose();
   }
@@ -77,7 +101,25 @@ class _LogSessionScreenState extends State<LogSessionScreen> {
     if (file != null) setState(() => _photoPath = file.path);
   }
 
+  String _encodeAnswers() {
+    final answers = <ReflectionAnswer>[
+      for (var i = 0; i < kReflectionQuestions.length; i++)
+        if (_answerControllers[i].text.trim().isNotEmpty)
+          ReflectionAnswer(
+            questionKey: kReflectionQuestions[i],
+            answer: _answerControllers[i].text.trim(),
+          ),
+    ];
+    return encodeReflectionAnswers(answers);
+  }
+
   Future<void> _save() async {
+    if (_goalController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Set a session goal first.')),
+      );
+      return;
+    }
     if (_selectedDrills.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Select at least one drill type.')),
@@ -97,13 +139,18 @@ class _LogSessionScreenState extends State<LogSessionScreen> {
     }
     if (_isEditing) {
       final oldPhoto = widget.session!.photoPath;
+      // copyWith keeps the legacy intensity rating untouched.
       final updated = widget.session!.copyWith(
         date: _date,
         durationMinutes: _duration,
         drills: _selectedDrills.toList(),
-        intensity: _intensity,
         notes: _notesController.text.trim(),
         photoPath: storedPhoto,
+        sessionGoal: _goalController.text.trim(),
+        goalAchievementScore: _goalScore,
+        playerRemarks: _playerRemarksController.text.trim(),
+        coachRemarks: _coachRemarksController.text.trim(),
+        reflectionAnswersJson: _encodeAnswers(),
       );
       await provider.updateSession(updated);
       if (photoChanged && oldPhoto != null && !kIsWeb) {
@@ -115,9 +162,13 @@ class _LogSessionScreenState extends State<LogSessionScreen> {
         date: _date,
         durationMinutes: _duration,
         drills: _selectedDrills.toList(),
-        intensity: _intensity,
         notes: _notesController.text.trim(),
         photoPath: storedPhoto,
+        sessionGoal: _goalController.text.trim(),
+        goalAchievementScore: _goalScore,
+        playerRemarks: _playerRemarksController.text.trim(),
+        coachRemarks: _coachRemarksController.text.trim(),
+        reflectionAnswersJson: _encodeAnswers(),
       );
       await provider.addSession(session);
     }
@@ -146,30 +197,17 @@ class _LogSessionScreenState extends State<LogSessionScreen> {
           ),
           const Divider(),
 
-          // Duration
-          _SectionLabel('Duration'),
-          Row(
-            children: [
-              Expanded(
-                child: Slider(
-                  value: _duration.toDouble(),
-                  min: 15,
-                  max: 180,
-                  divisions: 33,
-                  activeColor: AppTheme.primary,
-                  label: '$_duration min',
-                  onChanged: (v) => setState(() => _duration = v.round()),
-                ),
-              ),
-              SizedBox(
-                width: 60,
-                child: Text(
-                  '$_duration min',
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-              ),
-            ],
+          // Session goal
+          _SectionLabel('Session goal'),
+          const SizedBox(height: 8),
+          TextField(
+            key: const ValueKey('goalField'),
+            controller: _goalController,
+            decoration: const InputDecoration(
+              hintText: 'What do you want to achieve today?',
+            ),
           ),
+          const SizedBox(height: 8),
           const Divider(),
 
           // Drills
@@ -201,42 +239,99 @@ class _LogSessionScreenState extends State<LogSessionScreen> {
           const SizedBox(height: 8),
           const Divider(),
 
-          // Intensity
-          _SectionLabel('Intensity'),
-          Row(
-            children: [
-              const Text(
-                'Easy',
-                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
-              ),
-              Expanded(
-                child: Slider(
-                  value: _intensity.toDouble(),
-                  min: 1,
-                  max: 5,
-                  divisions: 4,
-                  activeColor: AppTheme.intensityColor(_intensity),
-                  label: '$_intensity / 5',
-                  onChanged: (v) => setState(() => _intensity = v.round()),
+          // Reflection
+          _SectionLabel('Reflection'),
+          const SizedBox(height: 4),
+          for (var i = 0; i < kReflectionQuestions.length; i++) ...[
+            Padding(
+              padding: const EdgeInsets.only(top: 8, bottom: 4),
+              child: Text(
+                kReflectionQuestions[i],
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: AppTheme.textPrimary,
                 ),
               ),
-              const Text(
-                'Hard',
-                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+            ),
+            TextField(
+              key: ValueKey('reflection-$i'),
+              controller: _answerControllers[i],
+              maxLines: 3,
+              minLines: 1,
+              decoration: const InputDecoration(isDense: true),
+            ),
+          ],
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              const Expanded(child: Text('Goal achievement')),
+              StarRating(
+                value: _goalScore,
+                onChanged: (v) => setState(() => _goalScore = v),
               ),
             ],
           ),
+          const SizedBox(height: 12),
+          _SectionLabel('Done well (player)'),
+          TextField(
+            key: const ValueKey('playerRemarks'),
+            controller: _playerRemarksController,
+            decoration: const InputDecoration(
+              hintText: 'What went well from your side?',
+            ),
+          ),
+          const SizedBox(height: 12),
+          _SectionLabel('Coach remarks'),
+          TextField(
+            key: const ValueKey('coachRemarks'),
+            controller: _coachRemarksController,
+            decoration: const InputDecoration(
+              hintText: 'What did the coach highlight?',
+            ),
+          ),
+          const SizedBox(height: 8),
           const Divider(),
 
-          // Notes
-          _SectionLabel('Notes / Coach feedback'),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _notesController,
-            maxLines: 4,
-            decoration: const InputDecoration(
-              hintText: 'What did you work on? Any coach feedback?',
-            ),
+          // Advanced: duration + free notes
+          ExpansionTile(
+            title: const Text('Advanced'),
+            tilePadding: EdgeInsets.zero,
+            childrenPadding: EdgeInsets.zero,
+            children: [
+              _SectionLabel('Duration'),
+              Row(
+                children: [
+                  Expanded(
+                    child: Slider(
+                      value: _duration.toDouble(),
+                      min: 15,
+                      max: 180,
+                      divisions: 33,
+                      activeColor: AppTheme.primary,
+                      label: '$_duration min',
+                      onChanged: (v) => setState(() => _duration = v.round()),
+                    ),
+                  ),
+                  SizedBox(
+                    width: 60,
+                    child: Text(
+                      '$_duration min',
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+              _SectionLabel('Notes / Coach feedback'),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _notesController,
+                maxLines: 4,
+                decoration: const InputDecoration(
+                  hintText: 'Anything else worth remembering?',
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
           ),
           const SizedBox(height: 16),
 
