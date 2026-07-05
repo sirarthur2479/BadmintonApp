@@ -51,6 +51,59 @@ void main() {
         reason: 'loadSessions stays guarded; only refresh() reloads');
   });
 
+  group('updateSession', () {
+    test('replaces the session in place and persists it', () async {
+      final provider = SessionProvider();
+      await provider.loadSessions();
+      final original = _session('before edit');
+      await provider.addSession(original);
+
+      await provider.updateSession(
+        original.copyWith(sessionGoal: 'edited goal', notes: 'after edit'),
+      );
+
+      expect(provider.sessions.single.sessionGoal, 'edited goal');
+      expect(provider.sessions.single.notes, 'after edit');
+      expect(provider.sessions.single.id, original.id);
+
+      // Survives a cold reload — it actually hit the DB.
+      final fresh = SessionProvider();
+      await fresh.loadSessions();
+      expect(fresh.sessions.single.sessionGoal, 'edited goal');
+    });
+
+    test('re-sorts by date when the edit moves the session', () async {
+      final provider = SessionProvider();
+      await provider.loadSessions();
+      final older = _session('older', day: 1);
+      final newer = _session('newer', day: 5);
+      await provider.addSession(older);
+      await provider.addSession(newer);
+      expect(provider.sessions.first.id, newer.id);
+
+      // Move the older session past the newer one.
+      await provider.updateSession(
+        older.copyWith(date: DateTime(2026, 7, 9)),
+      );
+
+      expect(provider.sessions.first.id, older.id,
+          reason: 'list must stay sorted date-descending after an edit');
+    });
+
+    test('notifies listeners', () async {
+      final provider = SessionProvider();
+      await provider.loadSessions();
+      final original = _session('watch me');
+      await provider.addSession(original);
+
+      var notified = false;
+      provider.addListener(() => notified = true);
+      await provider.updateSession(original.copyWith(sessionGoal: 'g'));
+
+      expect(notified, isTrue);
+    });
+  });
+
   group('sessionsPerWeek', () {
     // Friday, so the current week starts Monday 2026-07-06.
     final today = DateTime(2026, 7, 10);
