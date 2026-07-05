@@ -35,7 +35,7 @@ class HomeScreen extends StatelessWidget {
           final latest = provider.latestSession;
 
           return RefreshIndicator(
-            onRefresh: () => provider.loadSessions(),
+            onRefresh: () => provider.refresh(),
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
