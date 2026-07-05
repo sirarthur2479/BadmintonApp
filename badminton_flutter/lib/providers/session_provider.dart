@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import '../models/session.dart';
 import '../services/database_service.dart';
+import '../services/photo_store.dart';
 
 class SessionProvider extends ChangeNotifier {
   List<TrainingSession> _sessions = [];
@@ -27,7 +28,14 @@ class SessionProvider extends ChangeNotifier {
   }
 
   Future<void> deleteSession(String id) async {
+    final photoPath = _sessions
+        .where((s) => s.id == id)
+        .map((s) => s.photoPath)
+        .firstOrNull;
     await DatabaseService.deleteSession(id);
+    if (photoPath != null && !kIsWeb) {
+      await PhotoStore.instance.deletePhoto(photoPath);
+    }
     _sessions.removeWhere((s) => s.id == id);
     notifyListeners();
   }
