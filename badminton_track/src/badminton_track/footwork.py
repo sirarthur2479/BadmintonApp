@@ -35,6 +35,68 @@ class RawTrack:
     bbox_xyxy: np.ndarray
 
 
+def iter_tracks(video_path: Path, cfg: FootworkConfig) -> Iterator[Frame]:
+    """YOLO11 + ByteTrack over every `frame_stride`-th frame.
+
+    The only ultralytics import in the codebase. Swapping to a permissive
+    detector (RF-DETR + trackers, per research/cv-tracking.md) means
+    replacing just this function.
+    """
+    try:
+        from ultralytics import YOLO
+    except ImportError as exc:
+        raise ExtrasMissingError(
+            "the footwork pipeline needs ultralytics — "
+            'install with: pip install "badminton-track[footwork]"'
+        ) from exc
+    import cv2
+
+    model = YOLO(cfg.detector_tag)
+    cap = cv2.VideoCapture(str(video_path))
+    fps = cap.get(cv2.CAP_PROP_FPS) or 60.0
+    frame_idx = 0
+    try:
+        while True:
+            ok, frame = cap.read()
+            if not ok:
+                break
+            if frame_idx % cfg.frame_stride == 0:
+                results = model.track(
+                    frame,
+                    persist=True,
+                    tracker="bytetrack.yaml",
+                    classes=[0],
+                    verbose=False,
+                )
+                tracks: list[RawTrack] = []
+                boxes = results[0].boxes
+                if boxes is not None and boxes.id is not None:
+                    for box_id, xyxy in zip(boxes.id, boxes.xyxy):
+                        tracks.append(
+                            RawTrack(
+                                track_id=int(box_id),
+                                bbox_xyxy=np.asarray(xyxy, dtype=np.float64),
+                            )
+                        )
+                yield (frame_idx / fps, tracks)
+            frame_idx += 1
+    finally:
+        cap.release()
+
+
+def run_footwork(
+    video_path: Path,
+    calib: calibrate.Calibration,
+    cfg: FootworkConfig,
+) -> pd.DataFrame:
+    """Video -> locked-player telemetry, persisted as CSV under data_dir."""
+    df = lock_target(iter_tracks(video_path, cfg), calib, cfg)
+    out_dir = Path(cfg.data_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    df.to_csv(out_dir / f"{Path(video_path).stem}-telemetry.csv", index=False)
+    return df
+
+
 def _near_half_positions(
     tracks: list[RawTrack], calib: calibrate.Calibration
 ) -> dict[int, tuple[float, float]]:
