@@ -35,7 +35,7 @@ this order unless the owner overrides.
 ## 2. Flutter app test foundation
 
 - **Added:** 2026-07-05
-- **Status:**
+- **Status:** in progress (TASK-005 → TASK-006)
 - **Source:** `badminton_flutter/docs/codebase-review-2026-07-05.md` §2
 - **Summary:** Replace the placeholder test with unit tests for the pure logic
   that actually breaks: streak date-math, week bucketing, model ↔ map
