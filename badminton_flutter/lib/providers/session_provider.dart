@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import '../models/session.dart';
 import '../services/database_service.dart';
 import '../services/photo_store.dart';
+import '../utils/streak.dart' as streak_util;
 
 class SessionProvider extends ChangeNotifier {
   List<TrainingSession> _sessions = [];
@@ -42,37 +43,10 @@ class SessionProvider extends ChangeNotifier {
 
   // ── Computed properties ────────────────────────────────────────────────
 
-  int get currentStreak {
-    if (_sessions.isEmpty) return 0;
-    final sorted = [..._sessions]..sort((a, b) => b.date.compareTo(a.date));
-    final today = DateTime.now();
-    int streak = 0;
-    DateTime? lastDate;
+  int get currentStreak =>
+      streak_util.currentStreak(_sessions.map((s) => s.date), DateTime.now());
 
-    for (final session in sorted) {
-      final sessionDay =
-          DateTime(session.date.year, session.date.month, session.date.day);
-      if (lastDate == null) {
-        final todayDay = DateTime(today.year, today.month, today.day);
-        final diff = todayDay.difference(sessionDay).inDays;
-        if (diff > 1) break; // No session today or yesterday — no streak
-        streak = 1;
-        lastDate = sessionDay;
-      } else {
-        final diff = lastDate.difference(sessionDay).inDays;
-        if (diff == 1) {
-          streak++;
-          lastDate = sessionDay;
-        } else if (diff == 0) {
-          // Same day — multiple sessions, don't increment
-          continue;
-        } else {
-          break;
-        }
-      }
-    }
-    return streak;
-  }
+  int get bestStreak => streak_util.bestStreak(_sessions.map((s) => s.date));
 
   int get sessionsThisWeek {
     final now = DateTime.now();
