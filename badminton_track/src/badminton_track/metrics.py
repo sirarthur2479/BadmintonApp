@@ -71,3 +71,62 @@ def interpolate_gaps(
 def distance_to_base(df: pd.DataFrame, base_xy: tuple[float, float]) -> pd.Series:
     """Per-sample Euclidean distance (m) to the base point; NaN passes through."""
     return np.hypot(df["x_m"] - base_xy[0], df["y_m"] - base_xy[1])
+
+
+@dataclass(frozen=True)
+class Episode:
+    """One excursion: leaving the base radius until re-entering it.
+
+    Recovery latency — the metric the coach report is built on — is the time
+    from the excursion's farthest point back to base re-entry.
+    """
+
+    start_t: float
+    end_t: float
+    peak_t: float
+    peak_distance_m: float
+
+    @property
+    def recovery_latency_s(self) -> float:
+        return self.end_t - self.peak_t
+
+
+def detect_episodes(
+    df: pd.DataFrame, base_xy: tuple[float, float], radius_m: float
+) -> list[Episode]:
+    """Excursion episodes from telemetry.
+
+    An episode starts on the first sample outside `radius_m` and ends on the
+    first sample back inside. NaN samples are "unknown": they neither open
+    nor close an episode (the last known state persists across them). An
+    excursion still open when the data ends has no re-entry and is dropped.
+    """
+    dist = distance_to_base(df, base_xy)
+    t = df["t"].to_numpy()
+
+    episodes: list[Episode] = []
+    open_start: int | None = None
+    peak_idx: int | None = None
+    for i, d in enumerate(dist):
+        if np.isnan(d):
+            continue
+        if open_start is None:
+            if d > radius_m:
+                open_start = i
+                peak_idx = i
+        else:
+            assert peak_idx is not None
+            if d > dist.iloc[peak_idx]:
+                peak_idx = i
+            if d <= radius_m:
+                episodes.append(
+                    Episode(
+                        start_t=float(t[open_start]),
+                        end_t=float(t[i]),
+                        peak_t=float(t[peak_idx]),
+                        peak_distance_m=float(dist.iloc[peak_idx]),
+                    )
+                )
+                open_start = None
+                peak_idx = None
+    return episodes
