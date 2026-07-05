@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../models/session.dart';
@@ -60,6 +60,30 @@ class DatabaseService {
         ''');
       },
     );
+  }
+
+  // ── Test hooks ───────────────────────────────────────────────────────────
+
+  /// Closes and deletes the database so each test starts fresh.
+  @visibleForTesting
+  static Future<void> resetForTests() async {
+    await _db?.close();
+    _db = null;
+    final path = join(await getDatabasesPath(), 'badminton.db');
+    await deleteDatabase(path);
+  }
+
+  @visibleForTesting
+  static Future<List<Map<String, Object?>>> debugRawQuery(String sql,
+      [List<Object?>? args]) async {
+    final db = await _database;
+    return db.rawQuery(sql, args);
+  }
+
+  @visibleForTesting
+  static Future<int> debugRawDelete(String sql, [List<Object?>? args]) async {
+    final db = await _database;
+    return db.rawDelete(sql, args);
   }
 
   // ── Sessions ─────────────────────────────────────────────────────────────
