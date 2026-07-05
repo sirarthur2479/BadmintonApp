@@ -1,0 +1,38 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "badminton-track"
+version = "0.1.0"
+description = "Local CV + local-LLM analysis of junior badminton training footage"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=1.26",
+    "pandas>=2.1",
+    "scipy>=1.11",
+    "opencv-python-headless>=4.9",
+    "pyyaml>=6.0",
+    "pydantic>=2.5",
+]
+
+# Heavy ML dependencies are opt-in so the unit test suite runs headless.
+# Pipeline modules import these lazily and raise ExtrasMissingError with the
+# matching pip command when absent.
+[project.optional-dependencies]
+footwork = ["ultralytics>=8.4", "supervision>=0.29"]
+biomech = ["mediapipe>=0.10.35"]
+coach = ["ollama>=0.6"]
+full = [
+    "ultralytics>=8.4",
+    "supervision>=0.29",
+    "mediapipe>=0.10.35",
+    "ollama>=0.6",
+]
+dev = ["pytest>=8.0"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/badminton_track"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

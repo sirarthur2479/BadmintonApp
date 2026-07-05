@@ -1,0 +1,14 @@
+# Privacy: footage of a minor and everything derived from it stays local.
+videos/
+data/
+output/
+
+# Model weights (downloaded, never committed)
+*.pt
+*.task
+
+# Python
+.venv/
+__pycache__/
+*.egg-info/
+.pytest_cache/
