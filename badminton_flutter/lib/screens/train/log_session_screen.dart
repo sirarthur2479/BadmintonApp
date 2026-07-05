@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
@@ -5,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import '../../models/session.dart';
 import '../../providers/session_provider.dart';
+import '../../services/photo_store.dart';
 import '../../theme/app_theme.dart';
 
 class LogSessionScreen extends StatefulWidget {
@@ -53,16 +55,24 @@ class _LogSessionScreenState extends State<LogSessionScreen> {
       return;
     }
     setState(() => _saving = true);
+    final provider = context.read<SessionProvider>();
+    final id = const Uuid().v4();
+    // The picker returns a purgeable temp-cache path; copy the photo into
+    // app documents before persisting. Web keeps the blob URL as-is.
+    String? storedPhoto = _photoPath;
+    if (_photoPath != null && !kIsWeb) {
+      storedPhoto = await PhotoStore.instance.savePhoto(_photoPath!, id);
+    }
     final session = TrainingSession(
-      id: const Uuid().v4(),
+      id: id,
       date: _date,
       durationMinutes: _duration,
       drills: _selectedDrills.toList(),
       intensity: _intensity,
       notes: _notesController.text.trim(),
-      photoPath: _photoPath,
+      photoPath: storedPhoto,
     );
-    await context.read<SessionProvider>().addSession(session);
+    await provider.addSession(session);
     if (mounted) Navigator.pop(context);
   }
 

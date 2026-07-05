@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../models/session.dart';
@@ -19,13 +19,20 @@ class DatabaseService {
     return _db!;
   }
 
+  /// Overridable so parallel test isolates don't share one DB file.
+  @visibleForTesting
+  static String dbName = 'badminton.db';
+
   static Future<Database> _initDb() async {
     final dbPath = await getDatabasesPath();
-    final path = join(dbPath, 'badminton.db');
+    final path = join(dbPath, dbName);
 
     return openDatabase(
       path,
       version: 1,
+      // sqflite leaves foreign keys OFF by default; without this the
+      // matches-table ON DELETE CASCADE is inert.
+      onConfigure: (db) => db.execute('PRAGMA foreign_keys = ON'),
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE sessions (
@@ -60,6 +67,30 @@ class DatabaseService {
         ''');
       },
     );
+  }
+
+  // ── Test hooks ───────────────────────────────────────────────────────────
+
+  /// Closes and deletes the database so each test starts fresh.
+  @visibleForTesting
+  static Future<void> resetForTests() async {
+    await _db?.close();
+    _db = null;
+    final path = join(await getDatabasesPath(), dbName);
+    await deleteDatabase(path);
+  }
+
+  @visibleForTesting
+  static Future<List<Map<String, Object?>>> debugRawQuery(String sql,
+      [List<Object?>? args]) async {
+    final db = await _database;
+    return db.rawQuery(sql, args);
+  }
+
+  @visibleForTesting
+  static Future<int> debugRawDelete(String sql, [List<Object?>? args]) async {
+    final db = await _database;
+    return db.rawDelete(sql, args);
   }
 
   // ── Sessions ─────────────────────────────────────────────────────────────

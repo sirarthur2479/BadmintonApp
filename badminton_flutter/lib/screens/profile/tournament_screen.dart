@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../models/tournament.dart';
 import '../../providers/tournament_provider.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/confirm_delete.dart';
 
 class TournamentScreen extends StatelessWidget {
   const TournamentScreen({super.key});
@@ -141,13 +142,34 @@ class _TournamentTileState extends State<_TournamentTile> {
                 match: m, tournamentId: t.id)),
             Padding(
               padding: const EdgeInsets.all(8),
-              child: TextButton.icon(
-                onPressed: () =>
-                    _showAddMatchDialog(context, t.id),
-                icon: const Icon(Icons.add, size: 16),
-                label: const Text('Add match'),
-                style: TextButton.styleFrom(
-                    foregroundColor: AppTheme.primary),
+              child: Row(
+                children: [
+                  TextButton.icon(
+                    onPressed: () =>
+                        _showAddMatchDialog(context, t.id),
+                    icon: const Icon(Icons.add, size: 16),
+                    label: const Text('Add match'),
+                    style: TextButton.styleFrom(
+                        foregroundColor: AppTheme.primary),
+                  ),
+                  const Spacer(),
+                  TextButton.icon(
+                    onPressed: () async {
+                      final provider =
+                          context.read<TournamentProvider>();
+                      if (await confirmDelete(context,
+                          title: 'Delete tournament?',
+                          message:
+                              'All its matches will be deleted too.')) {
+                        await provider.deleteTournament(t.id);
+                      }
+                    },
+                    icon: const Icon(Icons.delete_outline, size: 16),
+                    label: const Text('Delete tournament'),
+                    style: TextButton.styleFrom(
+                        foregroundColor: Colors.red.shade400),
+                  ),
+                ],
               ),
             ),
           ],
@@ -188,9 +210,12 @@ class _MatchRow extends StatelessWidget {
       trailing: IconButton(
         icon: const Icon(Icons.delete_outline,
             size: 18, color: AppTheme.textSecondary),
-        onPressed: () => context
-            .read<TournamentProvider>()
-            .deleteMatch(match.id, tournamentId),
+        onPressed: () async {
+          final provider = context.read<TournamentProvider>();
+          if (await confirmDelete(context, title: 'Delete match?')) {
+            await provider.deleteMatch(match.id, tournamentId);
+          }
+        },
       ),
     );
   }

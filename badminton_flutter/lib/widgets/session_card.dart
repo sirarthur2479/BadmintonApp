@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/session.dart';
+import '../services/photo_store.dart';
 import '../theme/app_theme.dart';
 
 class SessionCard extends StatelessWidget {
@@ -71,9 +74,47 @@ class SessionCard extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
             ],
+            if (session.photoPath != null) ...[
+              const SizedBox(height: 8),
+              _PhotoThumbnail(storedPath: session.photoPath!),
+            ],
           ],
         ),
       ),
+    );
+  }
+}
+
+class _PhotoThumbnail extends StatelessWidget {
+  final String storedPath;
+
+  const _PhotoThumbnail({required this.storedPath});
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<String?>(
+      future: PhotoStore.instance.resolvePath(storedPath),
+      builder: (context, snapshot) {
+        final path = snapshot.data;
+        if (path == null) return const SizedBox.shrink();
+        return GestureDetector(
+          onTap: () => showDialog<void>(
+            context: context,
+            builder: (_) => Dialog(
+              child: InteractiveViewer(child: Image.file(File(path))),
+            ),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.file(
+              File(path),
+              width: 56,
+              height: 56,
+              fit: BoxFit.cover,
+            ),
+          ),
+        );
+      },
     );
   }
 }
