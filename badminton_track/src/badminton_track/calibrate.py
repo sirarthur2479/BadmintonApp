@@ -6,6 +6,11 @@ for points on the court plane. The single sanctioned bbox path is
 centre or head through H.
 """
 
+import json
+from dataclasses import dataclass
+from datetime import date
+from pathlib import Path
+
 import numpy as np
 
 from . import court
@@ -43,6 +48,54 @@ def build_homography(pixel_corners: np.ndarray) -> np.ndarray:
         court.corner_points_m().astype(np.float32),
     )
     return np.asarray(h, dtype=np.float64)
+
+
+@dataclass(frozen=True)
+class Calibration:
+    """A saved camera-setup calibration, persisted as JSON under data/."""
+
+    name: str
+    pixel_corners: np.ndarray  # (4, 2), court.corner_points_m() order
+    h: np.ndarray  # (3, 3) pixels -> metres
+    video_size: tuple[int, int]  # (width, height)
+    created: str  # ISO date
+
+    @classmethod
+    def create(
+        cls,
+        name: str,
+        pixel_corners: np.ndarray,
+        video_size: tuple[int, int],
+    ) -> "Calibration":
+        pixel_corners = np.asarray(pixel_corners, dtype=np.float64)
+        return cls(
+            name=name,
+            pixel_corners=pixel_corners,
+            h=build_homography(pixel_corners),
+            video_size=(int(video_size[0]), int(video_size[1])),
+            created=date.today().isoformat(),
+        )
+
+    def save(self, path: Path) -> None:
+        payload = {
+            "name": self.name,
+            "pixel_corners": self.pixel_corners.tolist(),
+            "h": self.h.tolist(),
+            "video_size": list(self.video_size),
+            "created": self.created,
+        }
+        Path(path).write_text(json.dumps(payload, indent=2))
+
+    @classmethod
+    def load(cls, path: Path) -> "Calibration":
+        payload = json.loads(Path(path).read_text())
+        return cls(
+            name=payload["name"],
+            pixel_corners=np.asarray(payload["pixel_corners"], dtype=np.float64),
+            h=np.asarray(payload["h"], dtype=np.float64),
+            video_size=tuple(payload["video_size"]),
+            created=payload["created"],
+        )
 
 
 def project_points(h: np.ndarray, pts: np.ndarray) -> np.ndarray:
