@@ -9,6 +9,7 @@ import '../../models/session.dart';
 import '../../providers/session_provider.dart';
 import '../../services/photo_store.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/confirm_delete.dart';
 import '../../widgets/star_rating.dart';
 
 class LogSessionScreen extends StatefulWidget {
@@ -25,7 +26,6 @@ class _LogSessionScreenState extends State<LogSessionScreen> {
   DateTime _date = DateTime.now();
   int _duration = 60;
   final Set<String> _selectedDrills = {};
-  late final List<String> _drillOptions;
   final _goalController = TextEditingController();
   final _playerRemarksController = TextEditingController();
   final _coachRemarksController = TextEditingController();
@@ -44,13 +44,6 @@ class _LogSessionScreenState extends State<LogSessionScreen> {
   void initState() {
     super.initState();
     final session = widget.session;
-    // Legacy/custom drills on an existing session must stay selectable even
-    // if they're not built-in.
-    _drillOptions = [
-      ...kDrillTypes,
-      if (session != null)
-        ...session.drills.where((d) => !kDrillTypes.contains(d)),
-    ];
     if (session != null) {
       _date = session.date;
       _duration = session.durationMinutes;
@@ -99,6 +92,47 @@ class _LogSessionScreenState extends State<LogSessionScreen> {
       imageQuality: 80,
     );
     if (file != null) setState(() => _photoPath = file.path);
+  }
+
+  Future<void> _promptNewTag() async {
+    final controller = TextEditingController();
+    final name = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('New drill tag'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(hintText: 'e.g. Deception'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, controller.text),
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+    if (name != null && mounted) {
+      await context.read<SessionProvider>().addCustomTag(name);
+    }
+    controller.dispose();
+  }
+
+  Future<void> _promptDeleteTag(String tag) async {
+    final confirmed = await confirmDelete(
+      context,
+      title: 'Delete tag "$tag"?',
+      message: 'Sessions already logged with it keep the tag.',
+    );
+    if (confirmed && mounted) {
+      await context.read<SessionProvider>().deleteCustomTag(tag);
+      setState(() => _selectedDrills.remove(tag));
+    }
   }
 
   String _encodeAnswers() {
@@ -177,6 +211,16 @@ class _LogSessionScreenState extends State<LogSessionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final customTags = context.watch<SessionProvider>().customTags;
+    // Built-ins, the user's tags, then any legacy drill names that survive
+    // only on the session being edited.
+    final drillOptions = [
+      ...kDrillTypes,
+      ...customTags,
+      ...?widget.session?.drills.where(
+        (d) => !kDrillTypes.contains(d) && !customTags.contains(d),
+      ),
+    ];
     return Scaffold(
       appBar: AppBar(title: Text(_isEditing ? 'Edit Session' : 'Log Session')),
       body: ListView(
@@ -216,25 +260,38 @@ class _LogSessionScreenState extends State<LogSessionScreen> {
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: _drillOptions.map((drill) {
-              final selected = _selectedDrills.contains(drill);
-              return FilterChip(
-                label: Text(drill),
-                selected: selected,
-                onSelected: (on) => setState(() {
-                  if (on) {
-                    _selectedDrills.add(drill);
-                  } else {
-                    _selectedDrills.remove(drill);
-                  }
-                }),
-                selectedColor: AppTheme.primary,
-                checkmarkColor: Colors.white,
-                labelStyle: TextStyle(
-                  color: selected ? Colors.white : AppTheme.textPrimary,
-                ),
-              );
-            }).toList(),
+            children: [
+              ...drillOptions.map((drill) {
+                final selected = _selectedDrills.contains(drill);
+                final chip = FilterChip(
+                  label: Text(drill),
+                  selected: selected,
+                  onSelected: (on) => setState(() {
+                    if (on) {
+                      _selectedDrills.add(drill);
+                    } else {
+                      _selectedDrills.remove(drill);
+                    }
+                  }),
+                  selectedColor: AppTheme.primary,
+                  checkmarkColor: Colors.white,
+                  labelStyle: TextStyle(
+                    color: selected ? Colors.white : AppTheme.textPrimary,
+                  ),
+                );
+                // Only the user's own tags can be long-press deleted.
+                if (!customTags.contains(drill)) return chip;
+                return GestureDetector(
+                  onLongPress: () => _promptDeleteTag(drill),
+                  child: chip,
+                );
+              }),
+              ActionChip(
+                avatar: const Icon(Icons.add, size: 18),
+                label: const Text('New tag'),
+                onPressed: _promptNewTag,
+              ),
+            ],
           ),
           const SizedBox(height: 8),
           const Divider(),
