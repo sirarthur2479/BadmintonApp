@@ -110,3 +110,45 @@ def test_project_feet_projects_only_feet_points():
     metres = calibrate.project_feet(h, bbox)
 
     np.testing.assert_allclose(metres, [[0.0, 13.4]], atol=1e-6)
+
+
+def perfect_service_clicks(calib: "calibrate.Calibration") -> np.ndarray:
+    """Where the front-service intersections truly appear in pixel space."""
+    h_inv = np.linalg.inv(calib.h)
+    return calibrate.project_points(h_inv, court.front_service_intersections_m())
+
+
+def test_sanity_check_zero_error_for_perfect_clicks():
+    calib = calibrate.Calibration.create(
+        name="x", pixel_corners=synthetic_camera_corners(), video_size=(1920, 1080)
+    )
+
+    err = calibrate.sanity_check(calib, perfect_service_clicks(calib))
+
+    assert err == pytest.approx(0.0, abs=1e-6)
+
+
+def test_sanity_check_reports_click_offset_in_pixels():
+    calib = calibrate.Calibration.create(
+        name="x", pixel_corners=synthetic_camera_corners(), video_size=(1920, 1080)
+    )
+    clicks = perfect_service_clicks(calib)
+    clicks[0] += [30.0, 40.0]  # one click off by 50 px
+
+    err = calibrate.sanity_check(calib, clicks)
+
+    assert err == pytest.approx(50.0, abs=1e-6)
+
+
+def test_check_or_warn_warns_beyond_20px():
+    calib = calibrate.Calibration.create(
+        name="x", pixel_corners=synthetic_camera_corners(), video_size=(1920, 1080)
+    )
+    good = perfect_service_clicks(calib)
+    bad = good.copy()
+    bad[1] += [0.0, 25.0]
+
+    assert calibrate.check_or_warn(calib, good) is None
+    warning = calibrate.check_or_warn(calib, bad)
+    assert warning is not None
+    assert "px" in warning
