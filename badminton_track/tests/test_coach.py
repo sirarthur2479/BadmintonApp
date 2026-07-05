@@ -208,6 +208,86 @@ def test_generate_raises_extras_missing_without_ollama(monkeypatch):
         coach.generate_coach_report({"facts": []}, coach_cfg())
 
 
+def good_report() -> coach.CoachReport:
+    return coach.CoachReport.model_validate_json(VALID_REPORT_JSON)
+
+
+def test_lint_passes_clean_report():
+    assert coach.lint_report(good_report(), require_safety_notes=True) == []
+
+
+def test_lint_flags_banned_terms():
+    report = good_report()
+    report.highlights.append("You are getting taller and your weight helps power.")
+
+    violations = coach.lint_report(report, require_safety_notes=False)
+
+    assert violations, "body commentary must be flagged"
+    assert any("weight" in v or "taller" in v for v in violations)
+
+
+def test_lint_requires_safety_note_on_findings_when_biomech_present():
+    report = good_report()
+    report.findings[0].safety_note = ""
+
+    violations = coach.lint_report(report, require_safety_notes=True)
+
+    assert any("safety" in v.lower() for v in violations)
+    # Without biomech data the same report is fine.
+    assert coach.lint_report(report, require_safety_notes=False) == []
+
+
+def test_produce_report_retries_once_then_falls_back(monkeypatch):
+    bad = good_report()
+    bad.highlights.append("your weight is an advantage")
+    calls = []
+
+    def always_bad(summary, cfg, extra_instruction=None):
+        calls.append(extra_instruction)
+        return bad
+
+    monkeypatch.setattr(coach, "generate_coach_report", always_bad)
+    summary = coach.build_summary(episode_stats(), aggregates(), None)
+
+    md = coach.produce_report(summary, coach_cfg())
+
+    assert len(calls) == 2, "exactly one retry"
+    assert calls[1] is not None and "weight" in calls[1], (
+        "retry must name the violation"
+    )
+    assert "weight" not in md, "fallback report must not contain the violation"
+    assert "recover" in md.lower(), "fallback still carries the metrics facts"
+
+
+def test_produce_report_returns_narrative_markdown(monkeypatch):
+    monkeypatch.setattr(
+        coach,
+        "generate_coach_report",
+        lambda summary, cfg, extra_instruction=None: good_report(),
+    )
+    summary = coach.build_summary(episode_stats(), aggregates(), biomech_rows())
+
+    md = coach.produce_report(summary, coach_cfg())
+
+    assert md.startswith("## Coach Report")
+    assert "Great hustle." in md
+    assert "**Why it matters:**" in md
+    assert "Shadow ladders" in md
+    assert "Check this with your coach" in md
+    assert md.rstrip().endswith("---")
+
+
+def test_metrics_only_markdown_contains_episode_stats():
+    summary = coach.build_summary(episode_stats(), aggregates(), None)
+
+    md = coach.metrics_only_markdown(summary)
+
+    assert md.startswith("## Coach Report")
+    assert "0.8" in md  # mean recovery
+    assert "412" in md  # distance
+    assert md.rstrip().endswith("---")
+
+
 def test_coach_report_round_trips_from_json():
     payload = {
         "highlights": ["Great hustle in the long rallies."],

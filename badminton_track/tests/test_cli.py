@@ -128,6 +128,42 @@ def test_cli_calibrate_saves_json_and_runs_sanity_check(
     np.testing.assert_array_equal(saved.pixel_corners, court.corner_points_m())
 
 
+def test_cli_report_writes_markdown_and_warns_without_llm(
+    workspace, monkeypatch, capsys
+):
+    from badminton_track import coach
+
+    # A prior footwork analysis left its summary behind.
+    monkeypatch.setattr(
+        footwork, "run_footwork", lambda video, calib, cfg: fake_telemetry()
+    )
+    cli.main(["analyze", "clip.mp4", "--mode", "footwork", "--calibration", "setup1"])
+
+    # LLM unavailable -> metrics-only fallback, still exit 0.
+    monkeypatch.setattr(
+        coach,
+        "generate_coach_report",
+        lambda summary, cfg, extra_instruction=None: None,
+    )
+
+    rc = cli.main(["report", "clip"])
+
+    assert rc == 0
+    report_path = workspace / "output" / "clip-coach-report.md"
+    assert report_path.exists()
+    md = report_path.read_text()
+    assert md.startswith("## Coach Report")
+    assert "rallies" in md or "recover" in md.lower()
+    assert "metrics-only" in capsys.readouterr().err
+
+
+def test_cli_report_without_any_summaries_exits_2(workspace, capsys):
+    rc = cli.main(["report", "nothing-here"])
+
+    assert rc == 2
+    assert "analyze" in capsys.readouterr().err
+
+
 def test_summary_json_is_nan_safe(workspace, monkeypatch):
     # Single-episode session -> trend slope is NaN and must serialize as null.
     monkeypatch.setattr(
