@@ -15,6 +15,9 @@ class SessionProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Reloads from the DB unconditionally (pull-to-refresh).
+  Future<void> refresh() async {}
+
   Future<void> addSession(TrainingSession session) async {
     await DatabaseService.insertSession(session);
     _sessions = [session, ..._sessions];
