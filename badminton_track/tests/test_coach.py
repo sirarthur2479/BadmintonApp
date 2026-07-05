@@ -102,6 +102,112 @@ def test_coach_report_schema_enforces_2_to_3_drills():
         coach.Finding.model_validate(finding)
 
 
+VALID_REPORT_JSON = (
+    '{"highlights": ["Great hustle."], '
+    '"findings": [{"fact": "Recovery slowed.", '
+    '"why_it_matters": "Base position wins rallies.", '
+    '"drills": ["Shadow ladders", "T-sprints"], '
+    '"safety_note": "Check this with your coach before changing technique."}], '
+    '"encouragement": "Keep building!"}'
+)
+
+
+class FakeResponseError(Exception):
+    def __init__(self, error: str, status_code: int):
+        super().__init__(error)
+        self.error = error
+        self.status_code = status_code
+
+
+def install_fake_ollama(monkeypatch, chat_behaviour):
+    """Inject a fake `ollama` module whose Client.chat runs chat_behaviour."""
+    import sys
+    import types
+
+    fake = types.ModuleType("ollama")
+    fake.ResponseError = FakeResponseError
+
+    class FakeClient:
+        def __init__(self, host=None):
+            self.host = host
+
+        def chat(self, **kwargs):
+            return chat_behaviour(**kwargs)
+
+    fake.Client = FakeClient
+    monkeypatch.setitem(sys.modules, "ollama", fake)
+    return fake
+
+
+def coach_cfg(model_tag: str = "qwen3:8b"):
+    from badminton_track.config import CoachConfig
+
+    return CoachConfig(model_tag=model_tag)
+
+
+def test_cloud_model_tag_rejected_before_network(monkeypatch):
+    calls = []
+    install_fake_ollama(monkeypatch, lambda **kw: calls.append(kw))
+
+    with pytest.raises(ValueError, match="cloud"):
+        coach.generate_coach_report({"facts": []}, coach_cfg("qwen3:8b-cloud"))
+
+    assert calls == [], "a -cloud tag must never reach the network"
+
+
+def test_generate_returns_report_on_success(monkeypatch):
+    def ok(**kwargs):
+        assert kwargs["model"] == "qwen3:8b"
+        assert kwargs["think"] is False
+        assert kwargs["format"] == coach.CoachReport.model_json_schema()
+
+        class Msg:
+            content = VALID_REPORT_JSON
+
+        class Resp:
+            message = Msg()
+
+        return Resp()
+
+    install_fake_ollama(monkeypatch, ok)
+
+    report = coach.generate_coach_report({"facts": ["f"]}, coach_cfg())
+
+    assert isinstance(report, coach.CoachReport)
+    assert report.findings[0].drills == ["Shadow ladders", "T-sprints"]
+
+
+def test_generate_returns_none_when_server_down(monkeypatch):
+    def down(**kwargs):
+        raise ConnectionError("Failed to connect to Ollama.")
+
+    install_fake_ollama(monkeypatch, down)
+
+    assert coach.generate_coach_report({"facts": []}, coach_cfg()) is None
+
+
+def test_generate_returns_none_and_hints_pull_on_404(monkeypatch, caplog):
+    def missing(**kwargs):
+        raise FakeResponseError("model not found", status_code=404)
+
+    install_fake_ollama(monkeypatch, missing)
+
+    with caplog.at_level("WARNING"):
+        result = coach.generate_coach_report({"facts": []}, coach_cfg())
+
+    assert result is None
+    assert "ollama pull" in caplog.text
+
+
+def test_generate_raises_extras_missing_without_ollama(monkeypatch):
+    import sys
+
+    monkeypatch.setitem(sys.modules, "ollama", None)  # simulate not installed
+
+    with pytest.raises(coach.ExtrasMissingError, match="coach"):
+        coach.generate_coach_report({"facts": []}, coach_cfg())
+
+
 def test_coach_report_round_trips_from_json():
     payload = {
         "highlights": ["Great hustle in the long rallies."],
