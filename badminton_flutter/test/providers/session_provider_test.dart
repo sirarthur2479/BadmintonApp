@@ -243,5 +243,97 @@ void main() {
 
       expect(buckets[currentWeekStart], 0.0);
     });
+
+    test('ignores sessions with null intensity', () async {
+      final provider = SessionProvider();
+      await provider.loadSessions();
+      await DatabaseService.insertSession(TrainingSession(
+        id: const Uuid().v4(),
+        date: currentWeekStart,
+        durationMinutes: 60,
+        drills: const ['Footwork'],
+        intensity: 4,
+      ));
+      // Post-redesign session: no intensity rating.
+      await DatabaseService.insertSession(TrainingSession(
+        id: const Uuid().v4(),
+        date: currentWeekStart.add(const Duration(days: 1)),
+        durationMinutes: 60,
+        drills: const ['Smash'],
+        sessionGoal: 'unrated',
+      ));
+      await provider.refresh();
+
+      final buckets = provider.avgIntensityPerWeek(weeks: 1, now: today);
+
+      expect(buckets[currentWeekStart], 4.0,
+          reason: 'unrated sessions must not drag the average toward zero');
+    });
+
+    test('a week with only unrated sessions reports 0.0', () async {
+      final provider = SessionProvider();
+      await provider.loadSessions();
+      await DatabaseService.insertSession(TrainingSession(
+        id: const Uuid().v4(),
+        date: currentWeekStart,
+        durationMinutes: 60,
+        drills: const ['Footwork'],
+      ));
+      await provider.refresh();
+
+      final buckets = provider.avgIntensityPerWeek(weeks: 1, now: today);
+
+      expect(buckets[currentWeekStart], 0.0);
+    });
+  });
+
+  group('avgGoalAchievementPerWeek', () {
+    final today = DateTime(2026, 7, 10);
+    final currentWeekStart = DateTime(2026, 7, 6);
+    final previousWeekStart = DateTime(2026, 6, 29);
+
+    test('buckets scores into the correct weeks and averages them', () async {
+      final provider = SessionProvider();
+      await provider.loadSessions();
+      await DatabaseService.insertSession(TrainingSession(
+        id: const Uuid().v4(),
+        date: currentWeekStart,
+        durationMinutes: 60,
+        drills: const ['Footwork'],
+        goalAchievementScore: 2,
+      ));
+      await DatabaseService.insertSession(TrainingSession(
+        id: const Uuid().v4(),
+        date: currentWeekStart.add(const Duration(days: 2)),
+        durationMinutes: 60,
+        drills: const ['Smash'],
+        goalAchievementScore: 5,
+      ));
+      await DatabaseService.insertSession(TrainingSession(
+        id: const Uuid().v4(),
+        date: previousWeekStart,
+        durationMinutes: 60,
+        drills: const ['Clear'],
+        goalAchievementScore: 1,
+      ));
+      await provider.refresh();
+
+      final buckets =
+          provider.avgGoalAchievementPerWeek(weeks: 2, now: today);
+
+      expect(buckets[currentWeekStart], 3.5);
+      expect(buckets[previousWeekStart], 1.0);
+    });
+
+    test('reports 0 for empty weeks and spans the requested window', () async {
+      final provider = SessionProvider();
+      await provider.loadSessions();
+
+      final buckets =
+          provider.avgGoalAchievementPerWeek(weeks: 8, now: today);
+
+      expect(buckets, hasLength(8));
+      expect(buckets.values.every((avg) => avg == 0.0), isTrue);
+    });
   });
 }
