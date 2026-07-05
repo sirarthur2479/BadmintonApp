@@ -55,6 +55,7 @@ class _LogSessionScreenState extends State<LogSessionScreen> {
       return;
     }
     setState(() => _saving = true);
+    final provider = context.read<SessionProvider>();
     final id = const Uuid().v4();
     // The picker returns a purgeable temp-cache path; copy the photo into
     // app documents before persisting. Web keeps the blob URL as-is.
@@ -71,7 +72,7 @@ class _LogSessionScreenState extends State<LogSessionScreen> {
       notes: _notesController.text.trim(),
       photoPath: storedPhoto,
     );
-    await context.read<SessionProvider>().addSession(session);
+    await provider.addSession(session);
     if (mounted) Navigator.pop(context);
   }
 
