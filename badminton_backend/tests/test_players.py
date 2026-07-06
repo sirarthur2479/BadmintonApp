@@ -74,6 +74,55 @@ def test_update_player_fields(client, auth_headers):
     assert listed[0]["shortTermGoal"] == "Steeper smashes"
 
 
+def test_delete_player_cascades_all_data(client, auth_headers, settings):
+    import sqlite3
+
+    payload = player_payload()
+    pid = payload["id"]
+    client.post("/api/v1/players", json=payload, headers=auth_headers)
+    # Seed one row into every child table directly.
+    conn = sqlite3.connect(settings.db_path)
+    conn.execute("PRAGMA foreign_keys = ON")
+    conn.execute(
+        "INSERT INTO sessions (id, playerId, date, durationMinutes, drills) "
+        "VALUES ('s1', ?, '2026-07-01', 60, '[\"Smash\"]')",
+        (pid,),
+    )
+    conn.execute(
+        "INSERT INTO tournaments (id, playerId, name, date, location, format) "
+        "VALUES ('t1', ?, 'Regional', '2026-06-01', 'Auckland', 'Knockout')",
+        (pid,),
+    )
+    conn.execute(
+        "INSERT INTO matches (id, tournamentId, opponent, scores, isWin) "
+        "VALUES ('m1', 't1', 'Rival', '21-15', 1)"
+    )
+    conn.execute(
+        "INSERT INTO custom_tags (playerId, name) VALUES (?, 'Deception')", (pid,)
+    )
+    conn.commit()
+
+    resp = client.delete(f"/api/v1/players/{pid}", headers=auth_headers)
+
+    assert resp.status_code == 204
+    for table in ("sessions", "tournaments", "matches", "custom_tags", "players"):
+        count = conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+        assert count == 0, f"{table} must be empty after player delete"
+    conn.close()
+
+
+def test_delete_other_accounts_player_404(client, auth_headers):
+    other_headers = register_and_login(client, email="other@example.com")
+    theirs = player_payload("Theirs")
+    client.post("/api/v1/players", json=theirs, headers=other_headers)
+
+    resp = client.delete(f"/api/v1/players/{theirs['id']}", headers=auth_headers)
+
+    assert resp.status_code == 404
+    still_there = client.get("/api/v1/players", headers=other_headers).json()
+    assert len(still_there) == 1
+
+
 def test_update_other_accounts_player_404(client, auth_headers):
     other_headers = register_and_login(client, email="other@example.com")
     theirs = player_payload("Theirs")
