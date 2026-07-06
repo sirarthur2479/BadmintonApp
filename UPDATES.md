@@ -7,6 +7,7 @@
 | TASK-021 | `badminton_backend/` scaffold: FastAPI app factory, env `Settings` (hard-fails without `JWT_SECRET` outside dev), SQLite schema mirroring current Flutter `toMap()` keys (JSON drills, Part-A columns, nullable intensity, FK cascades), register/login with PyJWT HS256 + pwdlib Argon2id (python-jose/passlib banned per research), `current_account` dependency + `/me` with full token-rejection matrix incl. deleted-account tokens. 16/16 pytest green |
 | TASK-022 | Players CRUD under the account: list/create/update/delete with the shared `require_player` ownership dependency (cross-account access is a non-leaking 404), delete cascades sessions/tournaments/matches/custom tags via FK. 24/24 pytest green |
 | TASK-023 | Player-scoped data API: sessions (verbatim current-Flutter payloads incl. JSON-array drills + Part-A fields, upsert/batch/any/update/delete), tournaments with nested matches (pipe scores, isWin 0/1, FK cascade, own-tournament guard), idempotent custom tags; 14-route parametrized cross-account-404 and auth-401 matrices. 64/64 pytest green |
+| TASK-024 | Flutter auth (web-gated): `ApiClient` (bearer injection, typed `ApiException`, build-time `API_BASE_URL`), `AuthProvider` (login/register-auto-login/logout/restore, prefs-persisted JWT, readable errors), login/register screens, `AuthGate` in app.dart — non-web bypass test-locked so mobile stays offline-first; web skips demo seeding. 143/143 flutter tests green |
 
 ## 2026-07-05
 
