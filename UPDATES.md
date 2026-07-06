@@ -8,6 +8,7 @@
 | TASK-022 | Players CRUD under the account: list/create/update/delete with the shared `require_player` ownership dependency (cross-account access is a non-leaking 404), delete cascades sessions/tournaments/matches/custom tags via FK. 24/24 pytest green |
 | TASK-023 | Player-scoped data API: sessions (verbatim current-Flutter payloads incl. JSON-array drills + Part-A fields, upsert/batch/any/update/delete), tournaments with nested matches (pipe scores, isWin 0/1, FK cascade, own-tournament guard), idempotent custom tags; 14-route parametrized cross-account-404 and auth-401 matrices. 64/64 pytest green |
 | TASK-024 | Flutter auth (web-gated): `ApiClient` (bearer injection, typed `ApiException`, build-time `API_BASE_URL`), `AuthProvider` (login/register-auto-login/logout/restore, prefs-persisted JWT, readable errors), login/register screens, `AuthGate` in app.dart — non-web bypass test-locked so mobile stays offline-first; web skips demo seeding. 143/143 flutter tests green |
+| TASK-025 | Player select (web flow): `Player` model + `PlayerProvider` (load, prefs-persisted active player restored across restarts, single-player auto-select, add with client UUID, clear-on-logout), `PlayerSelectScreen` (cards, add dialog, logout), `WebHome` routing after login, profile-tab switch-player action. 156/156 flutter tests green |
 
 ## 2026-07-05
 
