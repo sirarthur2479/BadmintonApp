@@ -1,6 +1,6 @@
 # Use case: self-hosted-backend
 
-**Status:** planned (TASK-021 → TASK-027)
+**Status:** done (TASK-021 → TASK-027, completed 2026-07-06)
 **Created:** 2026-07-06
 **Source:** `badminton_flutter/docs/self-hosting-plan.md` +
 `self-hosting-setup.md` (complete spec, pool idea #5), reviewed against the
