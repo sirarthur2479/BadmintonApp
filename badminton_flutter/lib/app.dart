@@ -1,9 +1,12 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'theme/app_theme.dart';
+import 'providers/auth_provider.dart';
 import 'providers/session_provider.dart';
 import 'providers/tournament_provider.dart';
 import 'providers/profile_provider.dart';
+import 'screens/auth/login_screen.dart';
 import 'screens/home/home_screen.dart';
 import 'screens/train/session_history_screen.dart';
 import 'screens/learn/technique_list_screen.dart';
@@ -18,8 +21,26 @@ class BadmintonApp extends StatelessWidget {
       title: 'Badminton Trainer',
       theme: AppTheme.theme,
       debugShowCheckedModeBanner: false,
-      home: const MainShell(),
+      home: const AuthGate(),
     );
+  }
+}
+
+/// Web requires a login (data lives on the home server); mobile stays
+/// offline-first and skips auth entirely.
+class AuthGate extends StatelessWidget {
+  /// Overrides kIsWeb in tests; production leaves it null.
+  final bool? webOverride;
+
+  const AuthGate({super.key, this.webOverride});
+
+  @override
+  Widget build(BuildContext context) {
+    final isWeb = webOverride ?? kIsWeb;
+    if (!isWeb) return const MainShell();
+    final auth = context.watch<AuthProvider>();
+    if (!auth.isLoggedIn) return const LoginScreen();
+    return const MainShell();
   }
 }
 
