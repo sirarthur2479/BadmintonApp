@@ -1,10 +1,29 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:badminton_flutter/models/session.dart';
 import 'package:badminton_flutter/models/tournament.dart';
+import 'package:badminton_flutter/services/api_client.dart';
+import 'package:badminton_flutter/services/api_service.dart';
 import 'package:badminton_flutter/services/database_service.dart';
+
+/// Explodes on any HTTP call — proves non-web code never reaches the api.
+class _ThrowingApiService extends ApiService {
+  _ThrowingApiService()
+      : super(
+          client: ApiClient(
+            baseUrl: 'http://never.call',
+            inner: MockClient(
+              (request) async =>
+                  throw StateError('web api called on non-web: ${request.url}'),
+            ),
+          ),
+          activePlayerId: () => throw StateError('web api used on non-web'),
+        );
+}
 
 void main() {
   setUpAll(() {
@@ -149,6 +168,27 @@ void main() {
     await DatabaseService.insertCustomTag('Deception');
 
     expect(await DatabaseService.getCustomTags(), ['Deception']);
+  });
+
+  test('non-web paths never touch the web api', () async {
+    // In the test environment kIsWeb is false; with a throwing ApiService
+    // injected, any accidental web-branch call would explode.
+    DatabaseService.webApi = _ThrowingApiService();
+    addTearDown(() => DatabaseService.webApi = null);
+
+    final session = TrainingSession(
+      id: const Uuid().v4(),
+      date: DateTime(2026, 7, 2),
+      durationMinutes: 45,
+      drills: const ['Serve'],
+    );
+    await DatabaseService.insertSession(session);
+    await DatabaseService.updateSession(session.copyWith(notes: 'edited'));
+    expect(await DatabaseService.getSessions(), hasLength(1));
+    expect(await DatabaseService.hasAnySessions(), isTrue);
+    await DatabaseService.insertCustomTag('Deception');
+    expect(await DatabaseService.getCustomTags(), ['Deception']);
+    await DatabaseService.deleteSession(session.id);
   });
 
   test('insertSessions then getSessions round-trips', () async {
