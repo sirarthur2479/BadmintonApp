@@ -60,13 +60,11 @@ One account = one login. One account can have multiple players (e.g. parent + 2 
   data/badminton.db      ← auto-created on first run
 ```
 
-**`requirements.txt`:**
-```
-fastapi==0.111.0
-uvicorn[standard]==0.29.0
-python-jose[cryptography]==3.3.0   # JWT
-passlib[bcrypt]==1.7.4             # password hashing
-```
+**Dependencies:** ⚠ superseded — the pins originally listed here
+(python-jose 3.3.0, passlib 1.7.4) are vulnerable/unmaintained. The
+implemented stack is `fastapi` + `uvicorn` + `pyjwt` + `pwdlib[argon2]`,
+pinned in `badminton_backend/pyproject.toml`; rationale in
+`research/fastapi-auth.md`.
 
 ### Auth endpoints
 ```
@@ -101,8 +99,13 @@ DELETE         /api/v1/players/{playerId}/tournaments/{id}/matches/{mid}
 
 **Security:** Backend always verifies `players.accountId == JWT accountId` before returning or mutating data. A user cannot access another account's player data even if they guess a playerId UUID.
 
-**Critical serialization details** (must match Flutter `fromMap()` exactly):
-- `drills` is comma-delimited: `"Footwork,Smash"`
+**Critical serialization details** (must match Flutter `fromMap()` exactly —
+⚠ updated after Part A / TASK-007):
+- `drills` is a JSON array encoded as a string: `"[\"Footwork\",\"Smash\"]"`
+  (the old comma format is legacy-read-only)
+- sessions also carry `sessionGoal`, `goalAchievementScore`,
+  `playerRemarks`, `coachRemarks`, `reflectionAnswersJson`; `intensity` is
+  nullable
 - `scores` is pipe-delimited: `"21-15|21-18"`
 - `isWin` is integer `0` or `1`
 - All IDs are client-generated UUIDs
