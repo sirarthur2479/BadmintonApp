@@ -1,5 +1,11 @@
 # Updates
 
+## 2026-07-06
+
+| Task | Summary |
+|---|---|
+| TASK-021 | `badminton_backend/` scaffold: FastAPI app factory, env `Settings` (hard-fails without `JWT_SECRET` outside dev), SQLite schema mirroring current Flutter `toMap()` keys (JSON drills, Part-A columns, nullable intensity, FK cascades), register/login with PyJWT HS256 + pwdlib Argon2id (python-jose/passlib banned per research), `current_account` dependency + `/me` with full token-rejection matrix incl. deleted-account tokens. 16/16 pytest green |
+
 ## 2026-07-05
 
 | Task | Summary |
