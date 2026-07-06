@@ -1,0 +1,26 @@
+# BadmintonTrack-12 configuration. Values here mirror the code defaults in
+# src/badminton_track/config.py — override per camera setup / machine.
+
+footwork:
+  detector_tag: yolo11n.pt        # YOLO11 nano (note: NOT yolov11n.pt)
+  frame_stride: 3                 # every 3rd frame -> ~20 Hz effective
+  base_point_m: [3.05, 8.68]      # near-half T; real base is slightly behind it
+  base_radius_m: 1.0
+  max_gap_s: 0.5                  # interpolate detection gaps shorter than this
+  lock_warmup_s: 2.0              # near-half scoring window to pick the player
+  lock_grace_s: 1.0               # locked id may vanish this long before relock
+  data_dir: data
+
+biomech:
+  model_asset_path: pose_landmarker_full.task
+  butter_cutoff_hz: 6.0           # zero-phase Butterworth, fs = effective rate
+  visibility_threshold: 0.5
+  camera_side: right              # side of the player facing the camera
+  oblique_z_spread_threshold: 0.15
+  data_dir: data
+  windows: []                     # e.g. {name: smash-1, start_s: 3.0, end_s: 4.5, angle: smash_extension}
+
+coach:
+  model_tag: qwen3:8b             # call with think=False
+  fallback_model_tag: gemma3:4b   # 8 GB-Mac fallback
+  ollama_host: http://localhost:11434

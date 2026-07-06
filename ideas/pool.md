@@ -56,7 +56,7 @@ this order unless the owner overrides.
 ## 4. BadmintonTrack-12 — CV + local-LLM video analysis tool (standalone)
 
 - **Added:** 2026-07-05
-- **Status:**
+- **Status:** done (TASK-014 → TASK-020, 2026-07-05)
 - **Source:** owner prompt (full spec in `ideas/use-cases/badmintontrack-12.md`)
 - **Summary:** Python tool that processes 1080p60 iPhone footage of a 12-year-old
   regional player: court homography + footwork recovery metrics (rear view),
