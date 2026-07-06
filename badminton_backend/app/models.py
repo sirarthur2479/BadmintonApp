@@ -40,6 +40,29 @@ class Session(BaseModel):
     reflectionAnswersJson: str = "[]"
 
 
+class Match(BaseModel):
+    """Mirrors Flutter TournamentMatch.toMap(): pipe scores, isWin 0/1."""
+
+    id: str = Field(min_length=1)
+    tournamentId: str = Field(min_length=1)
+    opponent: str
+    scores: str
+    isWin: int = Field(ge=0, le=1)
+    notes: str | None = None
+
+
+class TournamentIn(BaseModel):
+    id: str = Field(min_length=1)
+    name: str = Field(min_length=1)
+    date: str = Field(min_length=1)
+    location: str
+    format: str
+
+
+class TournamentOut(TournamentIn):
+    matches: list[Match] = []
+
+
 class Player(BaseModel):
     """Mirrors the Flutter PlayerProfile fields plus the client UUID id."""
 
