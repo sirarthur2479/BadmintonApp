@@ -8,15 +8,25 @@ import 'providers/player_provider.dart';
 import 'providers/session_provider.dart';
 import 'providers/tournament_provider.dart';
 import 'providers/profile_provider.dart';
+import 'services/api_client.dart';
+import 'services/api_service.dart';
+import 'services/database_service.dart';
 import 'data/sample_sessions_seed.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   final auth = AuthProvider();
+  final apiClient = ApiClient(tokenProvider: () => auth.token);
+  final players = PlayerProvider(client: apiClient);
   if (kIsWeb) {
-    // Web is server-backed: restore any persisted login, never demo-seed.
+    // Web is server-backed: restore any persisted login, point the data
+    // layer at the API (scoped to the active player), never demo-seed.
     await auth.restore();
+    DatabaseService.webApi = ApiService(
+      client: apiClient,
+      activePlayerId: () => players.activePlayer!.id,
+    );
   } else {
     await seedSampleDataIfNeeded(await SharedPreferences.getInstance());
   }
@@ -25,7 +35,7 @@ Future<void> main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider.value(value: auth),
-        ChangeNotifierProvider(create: (_) => PlayerProvider()),
+        ChangeNotifierProvider.value(value: players),
         ChangeNotifierProvider(create: (_) => SessionProvider()),
         ChangeNotifierProvider(create: (_) => TournamentProvider()),
         ChangeNotifierProvider(create: (_) => ProfileProvider()),
