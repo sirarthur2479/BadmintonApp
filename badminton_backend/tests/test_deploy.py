@@ -47,6 +47,24 @@ def test_dockerfile_runs_uvicorn_factory_on_8000():
     assert "8000" in dockerfile
 
 
+def test_setup_doc_mentions_monorepo_path_and_no_dead_pins():
+    doc = (
+        BACKEND.parent
+        / "badminton_flutter"
+        / "docs"
+        / "self-hosting-setup.md"
+    ).read_text()
+
+    assert "badminton_backend/" in doc, "doc must point at the monorepo source"
+    assert "python-jose" not in doc, "CVE'd pin must be gone, not upgraded"
+    assert "passlib" not in doc, "unmaintained pin must be gone"
+    assert "pyjwt" in doc.lower()
+    assert "pwdlib" in doc
+    # The stale serialization claim must be corrected.
+    assert "comma-delimited" not in doc
+    assert "JSON array" in doc
+
+
 def test_env_example_has_placeholder_secret_only():
     env = (DEPLOY / ".env.example").read_text()
 
