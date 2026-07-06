@@ -6,7 +6,9 @@ import 'providers/auth_provider.dart';
 import 'providers/session_provider.dart';
 import 'providers/tournament_provider.dart';
 import 'providers/profile_provider.dart';
+import 'providers/player_provider.dart';
 import 'screens/auth/login_screen.dart';
+import 'screens/player/player_select_screen.dart';
 import 'screens/home/home_screen.dart';
 import 'screens/train/session_history_screen.dart';
 import 'screens/learn/technique_list_screen.dart';
@@ -40,6 +42,32 @@ class AuthGate extends StatelessWidget {
     if (!isWeb) return const MainShell();
     final auth = context.watch<AuthProvider>();
     if (!auth.isLoggedIn) return const LoginScreen();
+    return const WebHome();
+  }
+}
+
+/// Post-login web routing: pick a player, then enter the main shell.
+class WebHome extends StatefulWidget {
+  const WebHome({super.key});
+
+  @override
+  State<WebHome> createState() => _WebHomeState();
+}
+
+class _WebHomeState extends State<WebHome> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final players = context.read<PlayerProvider>();
+      if (players.players.isEmpty) players.loadPlayers();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final players = context.watch<PlayerProvider>();
+    if (players.activePlayer == null) return const PlayerSelectScreen();
     return const MainShell();
   }
 }

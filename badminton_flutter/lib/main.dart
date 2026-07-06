@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'app.dart';
 import 'providers/auth_provider.dart';
+import 'providers/player_provider.dart';
 import 'providers/session_provider.dart';
 import 'providers/tournament_provider.dart';
 import 'providers/profile_provider.dart';
@@ -24,6 +25,7 @@ Future<void> main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider.value(value: auth),
+        ChangeNotifierProvider(create: (_) => PlayerProvider()),
         ChangeNotifierProvider(create: (_) => SessionProvider()),
         ChangeNotifierProvider(create: (_) => TournamentProvider()),
         ChangeNotifierProvider(create: (_) => ProfileProvider()),
