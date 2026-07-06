@@ -69,7 +69,7 @@ this order unless the owner overrides.
 ## 5. Self-hosted backend — accounts, players, data API
 
 - **Added:** 2026-07-05 (spec pre-dates the pool)
-- **Status:**
+- **Status:** in progress (use-case: `ideas/use-cases/self-hosted-backend.md`)
 - **Source:** `badminton_flutter/docs/self-hosting-plan.md` +
   `self-hosting-setup.md` (complete spec: FastAPI + SQLite + JWT,
   account → players model, Docker Compose, Cloudflare Tunnel)
