@@ -9,6 +9,7 @@ from .deps import current_account
 from .models import AccountOut
 from .routers import auth as auth_router
 from .routers import players as players_router
+from .routers import sessions as sessions_router
 from .settings import Settings
 
 
@@ -28,6 +29,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     app.include_router(auth_router.router, prefix="/api/v1")
     app.include_router(players_router.router, prefix="/api/v1")
+    app.include_router(sessions_router.router, prefix="/api/v1")
 
     @app.get("/api/v1/me", response_model=AccountOut)
     def me(
