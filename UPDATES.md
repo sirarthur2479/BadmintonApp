@@ -5,6 +5,7 @@
 | Task | Summary |
 |---|---|
 | TASK-021 | `badminton_backend/` scaffold: FastAPI app factory, env `Settings` (hard-fails without `JWT_SECRET` outside dev), SQLite schema mirroring current Flutter `toMap()` keys (JSON drills, Part-A columns, nullable intensity, FK cascades), register/login with PyJWT HS256 + pwdlib Argon2id (python-jose/passlib banned per research), `current_account` dependency + `/me` with full token-rejection matrix incl. deleted-account tokens. 16/16 pytest green |
+| TASK-022 | Players CRUD under the account: list/create/update/delete with the shared `require_player` ownership dependency (cross-account access is a non-leaking 404), delete cascades sessions/tournaments/matches/custom tags via FK. 24/24 pytest green |
 
 ## 2026-07-05
 
