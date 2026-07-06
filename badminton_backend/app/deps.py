@@ -36,3 +36,24 @@ def current_account(
     if row is None:  # token outlived its account
         raise _UNAUTHORIZED
     return row
+
+
+def require_player(
+    player_id: str,
+    request: Request,
+    account: Annotated[sqlite3.Row, Depends(current_account)],
+) -> sqlite3.Row:
+    """The player row IF it belongs to the caller's account; else 404.
+
+    404 (not 403) so another account's guessed UUID leaks nothing — the
+    ownership check every data route builds on.
+    """
+    settings = request.app.state.settings
+    with get_conn(settings) as conn:
+        row = conn.execute(
+            "SELECT * FROM players WHERE id = ? AND accountId = ?",
+            (player_id, account["id"]),
+        ).fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="player not found")
+    return row

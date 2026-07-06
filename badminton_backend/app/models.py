@@ -16,3 +16,17 @@ class AccountOut(BaseModel):
 class TokenOut(BaseModel):
     access_token: str
     token_type: str = "bearer"
+
+
+class Player(BaseModel):
+    """Mirrors the Flutter PlayerProfile fields plus the client UUID id."""
+
+    id: str = Field(min_length=1)
+    name: str = Field(min_length=1)
+    age: int | None = None
+    club: str = ""
+    playingStyle: str = ""
+    preferredGrip: str = ""
+    shortTermGoal: str = ""
+    longTermGoal: str = ""
+    photoPath: str | None = None
