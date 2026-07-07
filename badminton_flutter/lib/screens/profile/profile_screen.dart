@@ -1,7 +1,9 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../models/player_profile.dart';
+import '../../providers/player_provider.dart';
 import '../../providers/profile_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/profile_avatar.dart';
@@ -93,6 +95,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
       appBar: AppBar(
         title: const Text('Profile'),
         actions: [
+          if (kIsWeb)
+            IconButton(
+              key: const ValueKey('switchPlayerButton'),
+              icon: const Icon(Icons.switch_account),
+              tooltip: 'Switch player',
+              onPressed: () =>
+                  context.read<PlayerProvider>().clearActivePlayer(),
+            ),
           TextButton(
             onPressed: () {
               if (_editing) {

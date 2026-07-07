@@ -1,5 +1,17 @@
 # Updates
 
+## 2026-07-06
+
+| Task | Summary |
+|---|---|
+| TASK-021 | `badminton_backend/` scaffold: FastAPI app factory, env `Settings` (hard-fails without `JWT_SECRET` outside dev), SQLite schema mirroring current Flutter `toMap()` keys (JSON drills, Part-A columns, nullable intensity, FK cascades), register/login with PyJWT HS256 + pwdlib Argon2id (python-jose/passlib banned per research), `current_account` dependency + `/me` with full token-rejection matrix incl. deleted-account tokens. 16/16 pytest green |
+| TASK-022 | Players CRUD under the account: list/create/update/delete with the shared `require_player` ownership dependency (cross-account access is a non-leaking 404), delete cascades sessions/tournaments/matches/custom tags via FK. 24/24 pytest green |
+| TASK-023 | Player-scoped data API: sessions (verbatim current-Flutter payloads incl. JSON-array drills + Part-A fields, upsert/batch/any/update/delete), tournaments with nested matches (pipe scores, isWin 0/1, FK cascade, own-tournament guard), idempotent custom tags; 14-route parametrized cross-account-404 and auth-401 matrices. 64/64 pytest green |
+| TASK-024 | Flutter auth (web-gated): `ApiClient` (bearer injection, typed `ApiException`, build-time `API_BASE_URL`), `AuthProvider` (login/register-auto-login/logout/restore, prefs-persisted JWT, readable errors), login/register screens, `AuthGate` in app.dart — non-web bypass test-locked so mobile stays offline-first; web skips demo seeding. 143/143 flutter tests green |
+| TASK-025 | Player select (web flow): `Player` model + `PlayerProvider` (load, prefs-persisted active player restored across restarts, single-player auto-select, add with client UUID, clear-on-logout), `PlayerSelectScreen` (cards, add dialog, logout), `WebHome` routing after login, profile-tab switch-player action. 156/156 flutter tests green |
+| TASK-026 | Web data layer: `ApiService` mirrors `DatabaseService`'s surface over the player-scoped routes (models' own `toMap/fromMap` on the wire — comma-safe drills round-trip verified); all `kIsWeb` branches delegate to it and the in-memory web lists are deleted; throwing-stub guard test proves mobile never touches the API; web startup wires token-carrying client + active-player scoping and skips demo seed. 164/164 flutter tests green |
+| TASK-027 | Deployable: backend `Dockerfile` (uvicorn --factory), `deploy/docker-compose.yml` (backend + nginx, `.env`-required JWT_SECRET, persisted data volume), nginx SPA+proxy conf, `.env.example`; `self-hosting-setup.md` rewritten for the monorepo layout with current stack and JSON-serialization notes (lint-tested: dead pins banned from the doc), plan doc patched with pointer notes. Closes the self-hosted-backend use-case. 70/70 backend + 164/164 flutter + 88/88 track green |
+
 ## 2026-07-05
 
 | Task | Summary |
