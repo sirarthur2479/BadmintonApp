@@ -80,7 +80,7 @@ this order unless the owner overrides.
 ## 6. BadmintonTrack-12 in-app integration — WiFi upload to home analysis server
 
 - **Added:** 2026-07-05
-- **Status:**
+- **Status:** in progress (use-case: `ideas/use-cases/badmintontrack-integration.md`)
 - **Depends on:** #4 (analysis pipeline must exist), ideally #5 (server + JWT)
 - **Summary:** Close the loop so no file is ever copied manually: record video
   on the phone → the app uploads it to an analysis server running on the
