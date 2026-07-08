@@ -6,6 +6,7 @@ startup. Every test injects a fake PipelineRunner; the ML extras are never
 imported here.
 """
 
+import threading
 import time
 from pathlib import Path
 
@@ -383,3 +384,74 @@ def test_real_runner_footwork_mode_requires_calibration(monkeypatch, tmp_path):
 
     with pytest.raises(RuntimeError, match="calibration"):
         real_pipeline_runner("v.mp4", "footwork", str(tmp_path))
+
+
+# --- Slice: artifact download routes (TASK-034) ---
+
+
+def test_report_and_court_map_download_when_done(settings, tmp_path):
+    report = tmp_path / "coach-report.md"
+    report.write_text("# Coach Report\nwell played")
+    court_map = tmp_path / "court-map.png"
+    court_map.write_bytes(b"\x89PNG fake")
+
+    def runner(video_path, mode, out_dir):
+        return PipelineResult(
+            report_path=str(report), court_map_path=str(court_map)
+        )
+
+    with client_with_runner(settings, runner) as client:
+        headers = register_and_login(client)
+        player_id = make_player(client, headers)
+        complete_upload(client, headers, player_id)
+        job = wait_for_job(settings)
+
+        got_report = client.get(
+            f"/api/v1/jobs/{job['id']}/report", headers=headers
+        )
+        assert got_report.status_code == 200
+        assert got_report.text == "# Coach Report\nwell played"
+
+        got_map = client.get(
+            f"/api/v1/jobs/{job['id']}/court-map", headers=headers
+        )
+        assert got_map.status_code == 200
+        assert got_map.content == b"\x89PNG fake"
+
+
+def test_artifact_routes_404_until_done_and_for_foreign_account(settings):
+    block = threading.Event()
+
+    def runner(video_path, mode, out_dir):
+        block.wait(timeout=10)
+        return PipelineResult(report_path="r.md", court_map_path="")
+
+    with client_with_runner(settings, runner) as client:
+        headers = register_and_login(client)
+        player_id = make_player(client, headers)
+        complete_upload(client, headers, player_id)
+
+        with get_conn(settings) as conn:
+            job_id = conn.execute("SELECT id FROM jobs").fetchone()["id"]
+
+        # Not done yet -> 404 (job exists, artifact doesn't).
+        assert (
+            client.get(f"/api/v1/jobs/{job_id}/report", headers=headers)
+            .status_code
+            == 404
+        )
+        block.set()
+        wait_for_job(settings)
+
+        other = register_and_login(client, email="snoop3@example.com")
+        assert (
+            client.get(f"/api/v1/jobs/{job_id}/report", headers=other)
+            .status_code
+            == 404
+        )
+        # done but no court map (biomech-style empty path) -> 404 too.
+        assert (
+            client.get(f"/api/v1/jobs/{job_id}/court-map", headers=headers)
+            .status_code
+            == 404
+        )
