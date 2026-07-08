@@ -1,26 +1,47 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/upload_task.dart';
 import '../services/analysis_server_settings.dart';
+import '../services/connectivity_gate.dart';
 import '../services/database_service.dart';
 import '../services/tus_uploader.dart';
 
 /// The mobile upload queue: sqflite-persisted [UploadTask]s driven one at a
-/// time through an injected [TusUploader]. Starting is unconditional here;
-/// TASK-033 gates the pauseAll/resumeAll seams on WiFi.
+/// time through an injected [TusUploader], and — the owner's non-negotiable
+/// constraint — only ever over WiFi: the [ConnectivityGate] pauses the
+/// in-flight transfer the instant WiFi drops and resumes it when it returns.
 class UploadQueueProvider extends ChangeNotifier {
   final TusUploader Function() _uploaderFactory;
+  final ConnectivityGate? _gate;
+  StreamSubscription<bool>? _gateSub;
 
   final List<UploadTask> _tasks = [];
   TusUploader? _activeUploader;
   String? _activeId;
 
-  /// While true (pauseAll), nothing starts — the TASK-033 WiFi gate's hook.
+  /// While true (pauseAll), nothing starts — driven by the WiFi gate.
   bool _gatePaused = false;
 
-  UploadQueueProvider({required TusUploader Function() uploaderFactory})
-      : _uploaderFactory = uploaderFactory;
+  UploadQueueProvider({
+    required TusUploader Function() uploaderFactory,
+    ConnectivityGate? gate,
+  })  : _uploaderFactory = uploaderFactory,
+        _gate = gate {
+    _gateSub = gate?.wifiChanges
+        .listen((onWifi) => onWifi ? resumeAll() : pauseAll());
+  }
+
+  /// No gate means "not gated" (tests of the raw queue, web never uploads).
+  bool get _wifiOk => _gate?.onWifi ?? true;
+
+  @override
+  void dispose() {
+    _gateSub?.cancel();
+    super.dispose();
+  }
 
   List<UploadTask> get tasks => List.unmodifiable(_tasks);
 
@@ -109,7 +130,7 @@ class UploadQueueProvider extends ChangeNotifier {
   }
 
   void _startNext() {
-    if (_gatePaused || _activeId != null) return;
+    if (_gatePaused || !_wifiOk || _activeId != null) return;
     final next = _tasks
         .cast<UploadTask?>()
         .firstWhere((t) => t!.status == UploadStatus.pending,
