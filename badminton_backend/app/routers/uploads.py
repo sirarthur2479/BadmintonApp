@@ -7,6 +7,7 @@ correlation key from the offline-first phone, not a sessions-table FK.
 """
 
 import base64
+import os
 import sqlite3
 import uuid
 from datetime import datetime, timezone
@@ -168,4 +169,53 @@ def probe_upload(
             "Upload-Length": str(row["total_bytes"]),
             "Cache-Control": "no-store",
         },
+    )
+
+
+@router.patch("/{upload_id}")
+async def append_chunk(
+    upload_id: str,
+    request: Request,
+    account: Annotated[sqlite3.Row, Depends(current_account)],
+) -> Response:
+    _require_tus_resumable(request)
+    if request.headers.get("Content-Type") != "application/offset+octet-stream":
+        raise HTTPException(
+            status_code=415,
+            detail="Content-Type must be application/offset+octet-stream",
+            headers=_TUS_HEADERS,
+        )
+    settings = request.app.state.settings
+    row = _require_upload(upload_id, settings, account)
+
+    claimed = request.headers.get("Upload-Offset", "")
+    if not claimed.isdigit() or int(claimed) != row["offset_bytes"]:
+        # The client must HEAD-probe and retry from the server's offset.
+        raise HTTPException(
+            status_code=409, detail="Upload-Offset mismatch", headers=_TUS_HEADERS
+        )
+    offset = int(claimed)
+
+    # Stream to disk — a chunk may be hundreds of MB; never buffer it whole.
+    written = 0
+    with open(row["storage_path"], "r+b") as f:
+        f.seek(offset)
+        async for part in request.stream():
+            f.write(part)
+            written += len(part)
+        f.flush()
+        os.fsync(f.fileno())
+
+    # Only after the bytes are durably on disk does the offset advance —
+    # SQLite is the resumption source of truth.
+    new_offset = offset + written
+    with get_conn(settings) as conn:
+        conn.execute(
+            "UPDATE uploads SET offset_bytes = ?, updated_at = ? WHERE id = ?",
+            (new_offset, _now(), upload_id),
+        )
+
+    return Response(
+        status_code=204,
+        headers={**_TUS_HEADERS, "Upload-Offset": str(new_offset)},
     )
