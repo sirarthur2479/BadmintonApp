@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .database import init_db
 from .deps import current_account
+from .jobs import JobWorker, PipelineRunner
 from .models import AccountOut
 from .routers import auth as auth_router
 from .routers import players as players_router
@@ -16,12 +17,21 @@ from .routers import uploads as uploads_router
 from .settings import Settings
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+def _default_runner(video_path: str, mode: str, out_dir: str):
+    # Placeholder until the real badminton_track runner lands (TASK-029
+    # slice 5); jobs fail actionably instead of hanging.
+    raise NotImplementedError("pipeline runner not wired yet")
+
+
+def create_app(
+    settings: Settings | None = None, runner: PipelineRunner | None = None
+) -> FastAPI:
     settings = settings or Settings.from_env()
     init_db(settings)
 
     app = FastAPI(title="badminton-backend")
     app.state.settings = settings
+    app.state.job_worker = JobWorker(settings, runner or _default_runner)
     # Same-origin in production (nginx serves both); permissive CORS keeps
     # local `flutter run -d chrome` development working.
     app.add_middleware(
