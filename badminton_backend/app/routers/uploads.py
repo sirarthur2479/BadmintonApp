@@ -6,6 +6,7 @@ tests rather than depending on a stale wrapper. `sessionId` is an opaque
 correlation key from the offline-first phone, not a sessions-table FK.
 """
 
+import asyncio
 import base64
 import os
 import sqlite3
@@ -25,6 +26,19 @@ TUS_VERSION = "1.0.0"
 TUS_MAX_SIZE = 4 * 1024**3  # 4 GiB, comfortably above a 10-min 1080p60 clip
 
 _TUS_HEADERS = {"Tus-Resumable": TUS_VERSION}
+
+# One lock per in-flight upload id: overlapping PATCHes must not race the
+# offset check/write/update sequence. Dropped when the upload finishes.
+_locks: dict[str, asyncio.Lock] = {}
+
+
+def _lock_for(upload_id: str) -> asyncio.Lock:
+    return _locks.setdefault(upload_id, asyncio.Lock())
+
+
+def on_upload_complete(row: sqlite3.Row, request: Request) -> None:
+    """Called once when an upload's final byte lands. No-op seam — TASK-029
+    replaces the body with the analysis-job enqueue."""
 
 
 def _now() -> str:
@@ -186,34 +200,53 @@ async def append_chunk(
             headers=_TUS_HEADERS,
         )
     settings = request.app.state.settings
-    row = _require_upload(upload_id, settings, account)
 
-    claimed = request.headers.get("Upload-Offset", "")
-    if not claimed.isdigit() or int(claimed) != row["offset_bytes"]:
-        # The client must HEAD-probe and retry from the server's offset.
-        raise HTTPException(
-            status_code=409, detail="Upload-Offset mismatch", headers=_TUS_HEADERS
-        )
-    offset = int(claimed)
+    async with _lock_for(upload_id):
+        # Row fetch and offset check live under the lock: a concurrent PATCH
+        # that lost the race must see the advanced offset and get the 409.
+        row = _require_upload(upload_id, settings, account)
 
-    # Stream to disk — a chunk may be hundreds of MB; never buffer it whole.
-    written = 0
-    with open(row["storage_path"], "r+b") as f:
-        f.seek(offset)
-        async for part in request.stream():
-            f.write(part)
-            written += len(part)
-        f.flush()
-        os.fsync(f.fileno())
+        claimed = request.headers.get("Upload-Offset", "")
+        if not claimed.isdigit() or int(claimed) != row["offset_bytes"]:
+            # The client must HEAD-probe and retry from the server's offset.
+            raise HTTPException(
+                status_code=409, detail="Upload-Offset mismatch", headers=_TUS_HEADERS
+            )
+        offset = int(claimed)
 
-    # Only after the bytes are durably on disk does the offset advance —
-    # SQLite is the resumption source of truth.
-    new_offset = offset + written
-    with get_conn(settings) as conn:
-        conn.execute(
-            "UPDATE uploads SET offset_bytes = ?, updated_at = ? WHERE id = ?",
-            (new_offset, _now(), upload_id),
-        )
+        # Stream to disk — a chunk may be hundreds of MB; never buffer it whole.
+        written = 0
+        with open(row["storage_path"], "r+b") as f:
+            f.seek(offset)
+            async for part in request.stream():
+                f.write(part)
+                written += len(part)
+            f.flush()
+            os.fsync(f.fileno())
+
+        # Only after the bytes are durably on disk does the offset advance —
+        # SQLite is the resumption source of truth.
+        new_offset = offset + written
+        completed = new_offset == row["total_bytes"]
+        with get_conn(settings) as conn:
+            conn.execute(
+                "UPDATE uploads SET offset_bytes = ?, status = ?, updated_at = ?"
+                " WHERE id = ?",
+                (
+                    new_offset,
+                    "complete" if completed else "in_progress",
+                    _now(),
+                    upload_id,
+                ),
+            )
+            if completed:
+                row = conn.execute(
+                    "SELECT * FROM uploads WHERE id = ?", (upload_id,)
+                ).fetchone()
+
+    if completed:
+        _locks.pop(upload_id, None)
+        on_upload_complete(row, request)
 
     return Response(
         status_code=204,

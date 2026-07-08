@@ -16,7 +16,12 @@ def settings(tmp_path) -> Settings:
 
 @pytest.fixture()
 def client(settings) -> TestClient:
-    return TestClient(create_app(settings))
+    # Context-managed so every request shares one event loop (as in
+    # production) — asyncio primitives in handlers deadlock across the
+    # per-request loops TestClient otherwise creates — and so lifespan
+    # startup/shutdown hooks run.
+    with TestClient(create_app(settings)) as c:
+        yield c
 
 
 def register_and_login(
