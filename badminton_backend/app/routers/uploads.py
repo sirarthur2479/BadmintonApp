@@ -54,6 +54,26 @@ def _parse_metadata(header: str) -> dict[str, str]:
     return metadata
 
 
+def _require_upload(
+    upload_id: str, settings, account: sqlite3.Row, *, live_only: bool = True
+) -> sqlite3.Row:
+    """The upload row IF it belongs to the caller's account; else 404
+    (non-leaking, same posture as require_player). 410 for finished rows
+    when `live_only` — tus says a gone upload must not be probed/patched."""
+    with get_conn(settings) as conn:
+        row = conn.execute(
+            "SELECT * FROM uploads WHERE id = ? AND accountId = ?",
+            (upload_id, account["id"]),
+        ).fetchone()
+    if row is None:
+        raise HTTPException(
+            status_code=404, detail="upload not found", headers=_TUS_HEADERS
+        )
+    if live_only and row["status"] != "in_progress":
+        raise HTTPException(status_code=410, detail="upload gone", headers=_TUS_HEADERS)
+    return row
+
+
 @router.options("")
 def tus_discovery(
     account: Annotated[sqlite3.Row, Depends(current_account)],
@@ -130,4 +150,22 @@ def create_upload(
     return Response(
         status_code=201,
         headers={**_TUS_HEADERS, "Location": f"/api/v1/uploads/{upload_id}"},
+    )
+
+
+@router.head("/{upload_id}")
+def probe_upload(
+    upload_id: str,
+    request: Request,
+    account: Annotated[sqlite3.Row, Depends(current_account)],
+) -> Response:
+    row = _require_upload(upload_id, request.app.state.settings, account)
+    return Response(
+        status_code=200,
+        headers={
+            **_TUS_HEADERS,
+            "Upload-Offset": str(row["offset_bytes"]),
+            "Upload-Length": str(row["total_bytes"]),
+            "Cache-Control": "no-store",
+        },
     )
