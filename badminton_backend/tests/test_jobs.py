@@ -6,7 +6,15 @@ startup. Every test injects a fake PipelineRunner; the ML extras are never
 imported here.
 """
 
+import time
+from contextlib import contextmanager
+
+from fastapi.testclient import TestClient
+
 from app.database import get_conn
+from app.jobs import PipelineResult
+from app.main import create_app
+from tests.conftest import register_and_login
 from tests.test_uploads import TUS, create_upload, make_player, patch_chunk
 
 
@@ -42,9 +50,12 @@ def test_upload_complete_enqueues_queued_job(client, auth_headers, settings):
     assert job["sessionId"] == "sess-42"
     assert job["mode"] == "biomech"
     assert job["videoPath"] == upload["storage_path"]
-    assert job["status"] == "queued"
+    # The kick is async: by the time we query, the worker may have claimed
+    # the job already (the default runner is not wired in this fixture, so
+    # it can also have failed the claim's processing — enqueue is what this
+    # test owns; terminal transitions are covered below).
+    assert job["status"] in ("queued", "analyzing", "failed")
     assert job["createdAt"]
-    assert job["startedAt"] is None and job["finishedAt"] is None
 
 
 def test_incomplete_upload_enqueues_nothing(client, auth_headers, settings):
@@ -56,3 +67,113 @@ def test_incomplete_upload_enqueues_nothing(client, auth_headers, settings):
 
     with get_conn(settings) as conn:
         assert conn.execute("SELECT COUNT(*) c FROM jobs").fetchone()["c"] == 0
+
+
+# --- Slice 2: worker processes queued jobs ---
+
+
+def wait_for_job(settings, *, timeout=5.0):
+    """Poll until the single jobs row reaches a terminal state."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        with get_conn(settings) as conn:
+            row = conn.execute("SELECT * FROM jobs").fetchone()
+        if row is not None and row["status"] in ("done", "failed"):
+            return row
+        time.sleep(0.02)
+    raise AssertionError(f"job never finished: {dict(row) if row else None}")
+
+
+@contextmanager
+def client_with_runner(settings, runner):
+    with TestClient(create_app(settings, runner=runner)) as c:
+        yield c
+
+
+def test_worker_marks_analyzing_then_done_with_report_paths(settings):
+    def runner(video_path, mode, out_dir):
+        return PipelineResult(
+            report_path=f"{out_dir}/report.md", court_map_path=f"{out_dir}/map.png"
+        )
+
+    with client_with_runner(settings, runner) as client:
+        headers = register_and_login(client)
+        player_id = make_player(client, headers)
+        complete_upload(client, headers, player_id)
+
+        job = wait_for_job(settings)
+
+    assert job["status"] == "done"
+    assert job["reportPath"].endswith("report.md")
+    assert job["courtMapPath"].endswith("map.png")
+    assert job["startedAt"] and job["finishedAt"]
+    assert job["errorMessage"] is None
+
+
+def test_worker_failure_marks_failed_with_error_message(settings):
+    def runner(video_path, mode, out_dir):
+        raise ValueError("court corners not found")
+
+    with client_with_runner(settings, runner) as client:
+        headers = register_and_login(client)
+        player_id = make_player(client, headers)
+        complete_upload(client, headers, player_id)
+
+        job = wait_for_job(settings)
+
+    assert job["status"] == "failed"
+    assert "court corners not found" in job["errorMessage"]
+    assert job["startedAt"] and job["finishedAt"]
+    assert job["reportPath"] is None and job["courtMapPath"] is None
+
+
+def test_extras_missing_message_stored_verbatim(settings):
+    class ExtrasMissingError(RuntimeError):
+        """Same shape as badminton_track.errors.ExtrasMissingError (the ML
+        extras are deliberately not installed in the backend test env)."""
+
+    message = "footwork mode needs extras: pip install 'badminton-track[cv]'"
+
+    def runner(video_path, mode, out_dir):
+        raise ExtrasMissingError(message)
+
+    with client_with_runner(settings, runner) as client:
+        headers = register_and_login(client)
+        player_id = make_player(client, headers)
+        complete_upload(client, headers, player_id)
+
+        job = wait_for_job(settings)
+
+    assert job["status"] == "failed"
+    assert job["errorMessage"] == message
+
+
+def test_jobs_run_one_at_a_time(settings):
+    active = []
+    max_active = []
+
+    def runner(video_path, mode, out_dir):
+        active.append(1)
+        max_active.append(len(active))
+        time.sleep(0.05)
+        active.pop()
+        return PipelineResult(report_path="r.md", court_map_path="")
+
+    with client_with_runner(settings, runner) as client:
+        headers = register_and_login(client)
+        player_id = make_player(client, headers)
+        complete_upload(client, headers, player_id, session_id="s1")
+        complete_upload(client, headers, player_id, session_id="s2")
+
+        deadline = time.monotonic() + 5.0
+        while time.monotonic() < deadline:
+            with get_conn(settings) as conn:
+                done = conn.execute(
+                    "SELECT COUNT(*) c FROM jobs WHERE status = 'done'"
+                ).fetchone()["c"]
+            if done == 2:
+                break
+            time.sleep(0.02)
+
+    assert done == 2
+    assert max(max_active) == 1
