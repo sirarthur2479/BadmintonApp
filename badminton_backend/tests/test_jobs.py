@@ -230,3 +230,67 @@ def test_startup_recovery_rekicks_queued_jobs(settings):
 
     assert job["status"] == "done"
     assert job["reportPath"] == "r.md"
+
+
+# --- Slice 4: job status routes ---
+
+
+def test_get_job_by_id_and_foreign_account_404(settings):
+    def runner(video_path, mode, out_dir):
+        return PipelineResult(report_path="r.md", court_map_path="m.png")
+
+    with client_with_runner(settings, runner) as client:
+        headers = register_and_login(client)
+        player_id = make_player(client, headers)
+        complete_upload(client, headers, player_id, session_id="sess-9")
+        job = wait_for_job(settings)
+
+        resp = client.get(f"/api/v1/jobs/{job['id']}", headers=headers)
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["id"] == job["id"]
+        assert body["sessionId"] == "sess-9"
+        assert body["status"] == "done"
+        assert body["mode"] == "footwork"
+        assert body["errorMessage"] is None
+
+        other = register_and_login(client, email="snoop@example.com")
+        foreign = client.get(f"/api/v1/jobs/{job['id']}", headers=other)
+        assert foreign.status_code == 404
+        assert foreign.json()["detail"] == "job not found"
+
+        unknown = client.get("/api/v1/jobs/nope", headers=headers)
+        assert unknown.status_code == 404
+
+
+def test_list_jobs_by_session_id_newest_first(settings):
+    def runner(video_path, mode, out_dir):
+        return PipelineResult(report_path="r.md", court_map_path="")
+
+    with client_with_runner(settings, runner) as client:
+        headers = register_and_login(client)
+        player_id = make_player(client, headers)
+        first = complete_upload(client, headers, player_id, session_id="sess-A")
+        complete_upload(client, headers, player_id, session_id="sess-A")
+        complete_upload(client, headers, player_id, session_id="sess-B")
+        assert first  # three uploads, three jobs
+
+        resp = client.get("/api/v1/jobs", params={"sessionId": "sess-A"},
+                          headers=headers)
+        assert resp.status_code == 200
+        jobs = resp.json()
+        assert len(jobs) == 2
+        assert all(j["sessionId"] == "sess-A" for j in jobs)
+        assert jobs[0]["createdAt"] >= jobs[1]["createdAt"]
+
+        other = register_and_login(client, email="snoop2@example.com")
+        assert other != headers
+        empty = client.get("/api/v1/jobs", params={"sessionId": "sess-A"},
+                           headers=other)
+        assert empty.status_code == 200
+        assert empty.json() == []
+
+
+def test_jobs_routes_require_auth(client):
+    assert client.get("/api/v1/jobs/x").status_code == 401
+    assert client.get("/api/v1/jobs", params={"sessionId": "s"}).status_code == 401
