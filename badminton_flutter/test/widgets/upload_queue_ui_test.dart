@@ -54,16 +54,20 @@ void main() {
         child: MaterialApp(home: Scaffold(body: child)),
       );
 
-  testWidgets('analyse video action enqueues with session id and chosen mode',
+  testWidgets('analyse video action picks mode then source then enqueues',
       (tester) async {
     final provider = UploadQueueProvider(
       uploaderFactory: _NeverFinishingUploader.new,
     );
+    final pickedSources = <VideoSource>[];
     await tester.pumpWidget(wrap(
       provider,
       AnalyseVideoButton(
         sessionId: 'sess-42',
-        videoPicker: () async => XFile('/videos/clip.mp4'),
+        videoPicker: (source) async {
+          pickedSources.add(source);
+          return XFile('/videos/clip.mp4');
+        },
         fileLength: (path) async => 4096,
       ),
     ));
@@ -78,6 +82,15 @@ void main() {
 
     await tester.tap(find.text('Biomech'));
     await tester.pumpAndSettle();
+
+    // Source chooser sheet: record in app, iPhone photo library, or files.
+    expect(find.text('Record video'), findsOneWidget);
+    expect(find.text('Photo library'), findsOneWidget);
+    expect(find.text('Choose a file'), findsOneWidget);
+
+    await tester.tap(find.text('Photo library'));
+    await tester.pumpAndSettle();
+    expect(pickedSources, [VideoSource.gallery]);
     // The enqueue path crosses the sqflite ffi isolate — real async that the
     // fake-async test zone never advances on its own.
     await tester.runAsync(() async {
@@ -102,7 +115,10 @@ void main() {
       provider,
       AnalyseVideoButton(
         sessionId: 'sess-42',
-        videoPicker: () async => null,
+        videoPicker: (source) async {
+          expect(source, VideoSource.camera);
+          return null;
+        },
         fileLength: (path) async => fail('must not stat without a file'),
       ),
     ));
@@ -111,10 +127,48 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Footwork'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Record video'));
+    await tester.pumpAndSettle();
     await tester.runAsync(
         () => Future<void>.delayed(const Duration(milliseconds: 100)));
 
     expect(provider.tasks, isEmpty);
+  });
+
+  testWidgets('choose-a-file source routes to the files picker',
+      (tester) async {
+    final provider = UploadQueueProvider(
+      uploaderFactory: _NeverFinishingUploader.new,
+    );
+    final pickedSources = <VideoSource>[];
+    await tester.pumpWidget(wrap(
+      provider,
+      AnalyseVideoButton(
+        sessionId: 'sess-42',
+        videoPicker: (source) async {
+          pickedSources.add(source);
+          return XFile('/videos/from-files.mp4');
+        },
+        fileLength: (path) async => 2048,
+      ),
+    ));
+
+    await tester.tap(find.byKey(const ValueKey('analyseVideoButton')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Full'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Choose a file'));
+    await tester.pumpAndSettle();
+    await tester.runAsync(() async {
+      final deadline = DateTime.now().add(const Duration(seconds: 5));
+      while (provider.tasks.isEmpty && DateTime.now().isBefore(deadline)) {
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+      }
+    });
+
+    expect(pickedSources, [VideoSource.files]);
+    expect(provider.tasks.single.filePath, '/videos/from-files.mp4');
+    expect(provider.tasks.single.mode, 'full');
   });
 
   testWidgets('queue row shows uploading progress for its session',
