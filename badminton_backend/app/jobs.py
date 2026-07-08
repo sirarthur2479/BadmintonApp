@@ -101,3 +101,25 @@ class JobWorker:
                         job_id,
                     ),
                 )
+
+
+def resume_or_fail_orphaned_jobs(settings: Settings, worker: JobWorker) -> None:
+    """Startup sweep. 'analyzing' means the previous process died mid-job —
+    there is no safe way to resume mid-pipeline, so those fail loudly rather
+    than hang or silently vanish. 'queued' jobs have no partial side effects
+    and are re-kicked."""
+    with get_conn(settings) as conn:
+        conn.execute(
+            "UPDATE jobs SET status = 'failed',"
+            " errorMessage = 'interrupted by server restart', finishedAt = ?"
+            " WHERE status = 'analyzing'",
+            (_now(),),
+        )
+        queued = [
+            r["id"]
+            for r in conn.execute(
+                "SELECT id FROM jobs WHERE status = 'queued' ORDER BY createdAt"
+            ).fetchall()
+        ]
+    for job_id in queued:
+        worker.kick(job_id)

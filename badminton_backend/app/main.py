@@ -1,4 +1,5 @@
 import sqlite3
+from contextlib import asynccontextmanager
 from typing import Annotated
 
 from fastapi import Depends, FastAPI
@@ -6,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .database import init_db
 from .deps import current_account
-from .jobs import JobWorker, PipelineRunner
+from .jobs import JobWorker, PipelineRunner, resume_or_fail_orphaned_jobs
 from .models import AccountOut
 from .routers import auth as auth_router
 from .routers import players as players_router
@@ -29,7 +30,14 @@ def create_app(
     settings = settings or Settings.from_env()
     init_db(settings)
 
-    app = FastAPI(title="badminton-backend")
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        # Runs once per process start, on the serving event loop (kick needs
+        # it), before any request can race the sweep.
+        resume_or_fail_orphaned_jobs(settings, app.state.job_worker)
+        yield
+
+    app = FastAPI(title="badminton-backend", lifespan=lifespan)
     app.state.settings = settings
     app.state.job_worker = JobWorker(settings, runner or _default_runner)
     # Same-origin in production (nginx serves both); permissive CORS keeps
