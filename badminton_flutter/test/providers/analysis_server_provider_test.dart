@@ -183,4 +183,68 @@ void main() {
       expect(prefs.getString('analysis_token'), isNull);
     });
   });
+
+  group('testConnection', () {
+    test('succeeds when the tus discovery endpoint answers', () async {
+      final provider = AnalysisServerProvider(
+        httpClient: MockClient((request) async {
+          expect(request.method, 'OPTIONS');
+          expect(request.url.toString(),
+              'http://192.168.1.50:8001/api/v1/uploads');
+          return http.Response('', 204, headers: {
+            'tus-resumable': '1.0.0',
+            'tus-version': '1.0.0',
+          });
+        }),
+      );
+      await provider.configure('192.168.1.50:8001');
+
+      final result = await provider.testConnection();
+
+      expect(result.ok, isTrue);
+      expect(result.message, contains('Connected'));
+    });
+
+    test('reachable but not the analysis server fails with a clear message',
+        () async {
+      final provider = AnalysisServerProvider(
+        httpClient: MockClient(
+          (_) async => http.Response('<html>router admin</html>', 200),
+        ),
+      );
+      await provider.configure('192.168.1.1');
+
+      final result = await provider.testConnection();
+
+      expect(result.ok, isFalse);
+      expect(result.message.toLowerCase(), contains('not'));
+    });
+
+    test('unreachable host fails cleanly instead of throwing', () async {
+      final provider = AnalysisServerProvider(
+        httpClient: MockClient(
+          (_) async => throw http.ClientException('connection refused'),
+        ),
+      );
+      await provider.configure('192.168.1.99:8001');
+
+      final result = await provider.testConnection();
+
+      expect(result.ok, isFalse);
+      expect(result.message.toLowerCase(), contains('reach'));
+    });
+
+    test('without an address fails without touching the network', () async {
+      final provider = AnalysisServerProvider(
+        httpClient: MockClient(
+          (_) async => fail('must not make a request'),
+        ),
+      );
+
+      final result = await provider.testConnection();
+
+      expect(result.ok, isFalse);
+      expect(result.message, contains('address'));
+    });
+  });
 }
