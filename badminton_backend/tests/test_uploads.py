@@ -382,3 +382,45 @@ def test_overlapping_same_offset_patches_cannot_race(client, auth_headers, setti
     assert row["offset_bytes"] == 32
     content = Path(row["storage_path"]).read_bytes()
     assert content in (b"x" * 32, b"y" * 32)  # one winner, no interleaving
+
+
+# --- Slice 5: DELETE abort + auth sweep ---
+
+
+def test_delete_aborts_and_unlinks_partial_file(client, auth_headers, settings):
+    player_id = make_player(client, auth_headers)
+    location = create_upload(
+        client, auth_headers, player_id, length=64
+    ).headers["Location"]
+    patch_chunk(client, auth_headers, location, 0, b"a" * 10)
+
+    resp = client.delete(location, headers={**auth_headers, **TUS})
+
+    assert resp.status_code == 204
+    assert resp.headers["Tus-Resumable"] == "1.0.0"
+    with get_conn(settings) as conn:
+        row = conn.execute("SELECT * FROM uploads").fetchone()
+    assert row["status"] == "aborted"
+    assert not Path(row["storage_path"]).exists()
+
+    # A dead upload can no longer be probed or patched.
+    assert client.head(location, headers={**auth_headers, **TUS}).status_code == 410
+    assert patch_chunk(client, auth_headers, location, 10, b"b").status_code == 410
+
+
+def test_all_upload_routes_require_auth(client):
+    tus_only = {**TUS, "Upload-Length": "64"}
+    assert client.options("/api/v1/uploads").status_code == 401
+    assert client.post("/api/v1/uploads", headers=tus_only).status_code == 401
+    assert client.head("/api/v1/uploads/x", headers=TUS).status_code == 401
+    patch_headers = {
+        **TUS,
+        "Content-Type": "application/offset+octet-stream",
+        "Upload-Offset": "0",
+    }
+    assert (
+        client.patch("/api/v1/uploads/x", headers=patch_headers, content=b"a")
+        .status_code
+        == 401
+    )
+    assert client.delete("/api/v1/uploads/x", headers=TUS).status_code == 401
