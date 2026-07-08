@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image_picker/image_picker.dart';
@@ -9,6 +10,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'package:badminton_flutter/models/upload_task.dart';
 import 'package:badminton_flutter/providers/upload_queue_provider.dart';
+import 'package:badminton_flutter/services/connectivity_gate.dart';
 import 'package:badminton_flutter/services/database_service.dart';
 import 'package:badminton_flutter/services/tus_uploader.dart';
 import 'package:badminton_flutter/widgets/analyse_video_button.dart';
@@ -178,5 +180,38 @@ void main() {
     expect(find.textContaining('server unreachable'), findsOneWidget);
     // The unrelated session renders nothing.
     expect(find.textContaining('Upload'), findsOneWidget);
+  });
+
+  testWidgets('queue row shows waiting-for-wifi when gated off wifi',
+      (tester) async {
+    final gate = ConnectivityGate(
+      stream: const Stream<List<ConnectivityResult>>.empty(),
+      check: () async => const [ConnectivityResult.mobile],
+    );
+    await gate.initialise();
+    final provider = UploadQueueProvider(
+      uploaderFactory: _NeverFinishingUploader.new,
+      gate: gate,
+    );
+    await tester.runAsync(() async {
+      await DatabaseService.insertUploadTask(const UploadTask(
+        id: 'ut-3',
+        sessionId: 'sess-42',
+        playerId: 'pl-1',
+        mode: 'footwork',
+        filePath: '/videos/clip.mp4',
+        totalBytes: 1000,
+        status: UploadStatus.pending,
+      ));
+      await provider.resumePending();
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    });
+    await tester.pumpWidget(wrap(
+      provider,
+      const UploadStatusRow(sessionId: 'sess-42'),
+    ));
+    await tester.pump();
+
+    expect(find.textContaining('Waiting for WiFi'), findsOneWidget);
   });
 }
