@@ -5,6 +5,13 @@ import '../models/player.dart';
 import '../services/analysis_server_settings.dart';
 import '../services/api_client.dart';
 
+class ConnectionTestResult {
+  final bool ok;
+  final String message;
+
+  const ConnectionTestResult(this.ok, this.message);
+}
+
 /// Connection state for the LAN analysis server (mobile-only feature).
 ///
 /// Deliberately separate from the web-only [AuthProvider]: mobile stays
@@ -92,6 +99,34 @@ class AnalysisServerProvider extends ChangeNotifier {
     _playerName = name;
     await AnalysisServerSettings.save(playerId: id, playerName: name);
     notifyListeners();
+  }
+
+  /// Probes tus discovery (`OPTIONS /api/v1/uploads`). Only a response
+  /// carrying `Tus-Resumable` proves the address is the analysis server —
+  /// any LAN box can answer 200.
+  Future<ConnectionTestResult> testConnection() async {
+    if (_address == null) {
+      return const ConnectionTestResult(
+          false, 'Enter the server address first');
+    }
+    try {
+      final request =
+          http.Request('OPTIONS', Uri.parse('$_address/api/v1/uploads'));
+      if (_token != null) {
+        request.headers['authorization'] = 'Bearer $_token';
+      }
+      final response = await _http.send(request);
+      if (response.headers['tus-resumable'] != null) {
+        return const ConnectionTestResult(true, 'Connected to the server');
+      }
+      return const ConnectionTestResult(
+        false,
+        'Something answered, but it is not the analysis server — '
+        'check the address and port',
+      );
+    } catch (e) {
+      return ConnectionTestResult(false, 'Could not reach the server: $e');
+    }
   }
 
   Future<void> signOut() async {
