@@ -11,6 +11,7 @@ import 'providers/tournament_provider.dart';
 import 'providers/profile_provider.dart';
 import 'providers/upload_queue_provider.dart';
 import 'services/api_client.dart';
+import 'services/connectivity_gate.dart';
 import 'services/tusc_uploader.dart';
 import 'services/api_service.dart';
 import 'services/database_service.dart';
@@ -23,10 +24,12 @@ Future<void> main() async {
   final apiClient = ApiClient(tokenProvider: () => auth.token);
   final players = PlayerProvider(client: apiClient);
   final analysisServer = AnalysisServerProvider();
-  final uploadQueue = UploadQueueProvider(uploaderFactory: TuscUploader.new);
+  late final UploadQueueProvider uploadQueue;
   if (kIsWeb) {
     // Web is server-backed: restore any persisted login, point the data
     // layer at the API (scoped to the active player), never demo-seed.
+    // No gate: web never uploads video, the queue stays empty.
+    uploadQueue = UploadQueueProvider(uploaderFactory: TuscUploader.new);
     await auth.restore();
     DatabaseService.webApi = ApiService(
       client: apiClient,
@@ -34,8 +37,14 @@ Future<void> main() async {
     );
   } else {
     await seedSampleDataIfNeeded(await SharedPreferences.getInstance());
-    // Mobile-only: the LAN analysis-server connection (video uploads) and
-    // any uploads interrupted by the last app kill.
+    // Mobile-only: the LAN analysis-server connection, the WiFi-only
+    // upload gate, and any uploads interrupted by the last app kill.
+    final gate = ConnectivityGate();
+    await gate.initialise();
+    uploadQueue = UploadQueueProvider(
+      uploaderFactory: TuscUploader.new,
+      gate: gate,
+    );
     await analysisServer.restore();
     await uploadQueue.resumePending();
   }

@@ -13,21 +13,29 @@ class UploadStatusRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tasks = context
-        .watch<UploadQueueProvider>()
-        .tasks
-        .where((t) => t.sessionId == sessionId)
-        .toList();
+    final queue = context.watch<UploadQueueProvider>();
+    final tasks =
+        queue.tasks.where((t) => t.sessionId == sessionId).toList();
     if (tasks.isEmpty) return const SizedBox.shrink();
     final task = tasks.last; // newest attempt wins the row
 
     final (text, showProgress) = switch (task.status) {
-      UploadStatus.pending => ('Upload queued', false),
+      UploadStatus.pending => (
+          queue.waitingForWifi
+              ? 'Waiting for WiFi — uploads never use mobile data'
+              : 'Upload queued',
+          false
+        ),
       UploadStatus.uploading => (
           'Uploading video ${(task.sentBytes / task.totalBytes * 100).round()}%',
           true
         ),
-      UploadStatus.paused => ('Upload paused', true),
+      UploadStatus.paused => (
+          queue.waitingForWifi
+              ? 'Upload paused — waiting for WiFi'
+              : 'Upload paused',
+          true
+        ),
       UploadStatus.done => ('Video uploaded — analysing on the server', false),
       UploadStatus.failed => ('Upload failed: ${task.error ?? ''}', false),
     };

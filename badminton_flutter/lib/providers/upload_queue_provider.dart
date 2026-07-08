@@ -37,6 +37,9 @@ class UploadQueueProvider extends ChangeNotifier {
   /// No gate means "not gated" (tests of the raw queue, web never uploads).
   bool get _wifiOk => _gate?.onWifi ?? true;
 
+  /// True when work is queued but held back by the WiFi-only rule.
+  bool get waitingForWifi => !_wifiOk;
+
   @override
   void dispose() {
     _gateSub?.cancel();
