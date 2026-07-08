@@ -11,7 +11,7 @@ from contextlib import contextmanager
 
 from fastapi.testclient import TestClient
 
-from app.database import get_conn
+from app.database import get_conn, init_db
 from app.jobs import PipelineResult
 from app.main import create_app
 from tests.conftest import register_and_login
@@ -177,3 +177,56 @@ def test_jobs_run_one_at_a_time(settings):
 
     assert done == 2
     assert max(max_active) == 1
+
+
+# --- Slice 3: startup recovery ---
+
+
+def seed_job(settings, *, status, job_id="job-1"):
+    """Insert account -> player -> job directly; simulates rows left behind
+    by a process that died."""
+    init_db(settings)
+    with get_conn(settings) as conn:
+        conn.execute(
+            "INSERT INTO accounts (id, email, password_hash, created_at)"
+            " VALUES ('acc-1', 'a@b.c', 'x', 'now')"
+        )
+        conn.execute(
+            "INSERT INTO players (id, accountId, name) VALUES"
+            " ('pl-1', 'acc-1', 'Kid')"
+        )
+        conn.execute(
+            "INSERT INTO jobs (id, playerId, sessionId, videoPath, mode,"
+            " status, createdAt, startedAt) VALUES (?, 'pl-1', 's', 'v.mp4',"
+            " 'footwork', ?, 'now', ?)",
+            (job_id, status, "now" if status == "analyzing" else None),
+        )
+
+
+def test_startup_recovery_fails_orphaned_analyzing_jobs(settings):
+    seed_job(settings, status="analyzing")
+
+    def runner(video_path, mode, out_dir):
+        raise AssertionError("an interrupted job must never be re-run")
+
+    with client_with_runner(settings, runner):
+        pass  # startup hook runs on enter
+
+    with get_conn(settings) as conn:
+        job = conn.execute("SELECT * FROM jobs").fetchone()
+    assert job["status"] == "failed"
+    assert job["errorMessage"] == "interrupted by server restart"
+    assert job["finishedAt"]
+
+
+def test_startup_recovery_rekicks_queued_jobs(settings):
+    seed_job(settings, status="queued")
+
+    def runner(video_path, mode, out_dir):
+        return PipelineResult(report_path="r.md", court_map_path="")
+
+    with client_with_runner(settings, runner):
+        job = wait_for_job(settings)
+
+    assert job["status"] == "done"
+    assert job["reportPath"] == "r.md"
