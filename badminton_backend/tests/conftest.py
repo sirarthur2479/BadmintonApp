@@ -7,7 +7,11 @@ from app.settings import Settings
 
 @pytest.fixture()
 def settings(tmp_path) -> Settings:
-    return Settings(db_path=str(tmp_path / "test.db"), jwt_secret="test-secret")
+    return Settings(
+        db_path=str(tmp_path / "test.db"),
+        jwt_secret="test-secret",
+        upload_dir=str(tmp_path / "uploads"),
+    )
 
 
 @pytest.fixture()

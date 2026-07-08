@@ -12,6 +12,7 @@ from .routers import players as players_router
 from .routers import sessions as sessions_router
 from .routers import tags as tags_router
 from .routers import tournaments as tournaments_router
+from .routers import uploads as uploads_router
 from .settings import Settings
 
 
@@ -34,6 +35,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(sessions_router.router, prefix="/api/v1")
     app.include_router(tournaments_router.router, prefix="/api/v1")
     app.include_router(tags_router.router, prefix="/api/v1")
+    app.include_router(uploads_router.router, prefix="/api/v1")
 
     @app.get("/api/v1/me", response_model=AccountOut)
     def me(
