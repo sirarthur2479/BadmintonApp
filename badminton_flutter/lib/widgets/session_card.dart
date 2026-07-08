@@ -1,11 +1,16 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import '../models/session.dart';
+import '../providers/upload_queue_provider.dart';
 import '../services/photo_store.dart';
 import '../theme/app_theme.dart';
+import 'analyse_video_button.dart';
 import 'star_rating.dart';
+import 'upload_status_row.dart';
 
 class SessionCard extends StatelessWidget {
   final TrainingSession session;
@@ -152,6 +157,16 @@ class SessionCard extends StatelessWidget {
             if (session.photoPath != null) ...[
               const SizedBox(height: 8),
               _PhotoThumbnail(storedPath: session.photoPath!),
+            ],
+            // Video analysis is mobile-only; the nullable lookup also keeps
+            // this hidden in contexts without an upload queue (e.g. tests).
+            if (!kIsWeb &&
+                context.watch<UploadQueueProvider?>() != null) ...[
+              UploadStatusRow(sessionId: session.id),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: AnalyseVideoButton(sessionId: session.id),
+              ),
             ],
           ],
         ),

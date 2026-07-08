@@ -45,6 +45,8 @@ dependencies:
   path: ^1.8.0
   share_plus: ^13.2.0
   http: ^1.6.0
+  tusc: ^3.0.0
+  cross_file: ^0.3.5+4
 
 dev_dependencies:
   flutter_test:

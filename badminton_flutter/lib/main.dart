@@ -9,7 +9,9 @@ import 'providers/player_provider.dart';
 import 'providers/session_provider.dart';
 import 'providers/tournament_provider.dart';
 import 'providers/profile_provider.dart';
+import 'providers/upload_queue_provider.dart';
 import 'services/api_client.dart';
+import 'services/tusc_uploader.dart';
 import 'services/api_service.dart';
 import 'services/database_service.dart';
 import 'data/sample_sessions_seed.dart';
@@ -21,6 +23,7 @@ Future<void> main() async {
   final apiClient = ApiClient(tokenProvider: () => auth.token);
   final players = PlayerProvider(client: apiClient);
   final analysisServer = AnalysisServerProvider();
+  final uploadQueue = UploadQueueProvider(uploaderFactory: TuscUploader.new);
   if (kIsWeb) {
     // Web is server-backed: restore any persisted login, point the data
     // layer at the API (scoped to the active player), never demo-seed.
@@ -31,8 +34,10 @@ Future<void> main() async {
     );
   } else {
     await seedSampleDataIfNeeded(await SharedPreferences.getInstance());
-    // Mobile-only: the LAN analysis-server connection (video uploads).
+    // Mobile-only: the LAN analysis-server connection (video uploads) and
+    // any uploads interrupted by the last app kill.
     await analysisServer.restore();
+    await uploadQueue.resumePending();
   }
 
   runApp(
@@ -44,6 +49,7 @@ Future<void> main() async {
         ChangeNotifierProvider(create: (_) => TournamentProvider()),
         ChangeNotifierProvider(create: (_) => ProfileProvider()),
         ChangeNotifierProvider.value(value: analysisServer),
+        ChangeNotifierProvider.value(value: uploadQueue),
       ],
       child: const BadmintonApp(),
     ),

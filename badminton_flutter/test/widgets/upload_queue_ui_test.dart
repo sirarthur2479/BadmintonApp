@@ -76,6 +76,14 @@ void main() {
 
     await tester.tap(find.text('Biomech'));
     await tester.pumpAndSettle();
+    // The enqueue path crosses the sqflite ffi isolate — real async that the
+    // fake-async test zone never advances on its own.
+    await tester.runAsync(() async {
+      final deadline = DateTime.now().add(const Duration(seconds: 5));
+      while (provider.tasks.isEmpty && DateTime.now().isBefore(deadline)) {
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+      }
+    });
 
     final task = provider.tasks.single;
     expect(task.sessionId, 'sess-42');
@@ -101,6 +109,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Footwork'));
     await tester.pumpAndSettle();
+    await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 100)));
 
     expect(provider.tasks, isEmpty);
   });
@@ -110,17 +120,20 @@ void main() {
     final provider = UploadQueueProvider(
       uploaderFactory: _NeverFinishingUploader.new,
     );
-    await DatabaseService.insertUploadTask(const UploadTask(
-      id: 'ut-1',
-      sessionId: 'sess-42',
-      playerId: 'pl-1',
-      mode: 'footwork',
-      filePath: '/videos/clip.mp4',
-      totalBytes: 1000,
-      sentBytes: 400,
-      status: UploadStatus.uploading,
-    ));
-    await provider.resumePending();
+    await tester.runAsync(() async {
+      await DatabaseService.insertUploadTask(const UploadTask(
+        id: 'ut-1',
+        sessionId: 'sess-42',
+        playerId: 'pl-1',
+        mode: 'footwork',
+        filePath: '/videos/clip.mp4',
+        totalBytes: 1000,
+        sentBytes: 400,
+        status: UploadStatus.uploading,
+      ));
+      await provider.resumePending();
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    });
     // resumePending re-drives it; it stays 'uploading' with 400 sent.
     await tester.pumpWidget(wrap(
       provider,
@@ -137,17 +150,20 @@ void main() {
     final provider = UploadQueueProvider(
       uploaderFactory: _NeverFinishingUploader.new,
     );
-    await DatabaseService.insertUploadTask(const UploadTask(
-      id: 'ut-2',
-      sessionId: 'sess-42',
-      playerId: 'pl-1',
-      mode: 'footwork',
-      filePath: '/videos/clip.mp4',
-      totalBytes: 1000,
-      status: UploadStatus.failed,
-      error: 'server unreachable',
-    ));
-    await provider.resumePending();
+    await tester.runAsync(() async {
+      await DatabaseService.insertUploadTask(const UploadTask(
+        id: 'ut-2',
+        sessionId: 'sess-42',
+        playerId: 'pl-1',
+        mode: 'footwork',
+        filePath: '/videos/clip.mp4',
+        totalBytes: 1000,
+        status: UploadStatus.failed,
+        error: 'server unreachable',
+      ));
+      await provider.resumePending();
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    });
     await tester.pumpWidget(wrap(
       provider,
       const Column(
