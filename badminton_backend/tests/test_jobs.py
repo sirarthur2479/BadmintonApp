@@ -341,11 +341,11 @@ def _fake_track_package(monkeypatch, tmp_path, *, biomech_windows):
     coach_mod.build_summary = lambda stats, aggregates, rows: {
         "stats": stats, "aggregates": aggregates, "rows": rows,
     }
-    coach_mod.produce_report = (
-        lambda summary, coach_cfg: calls.setdefault("summary", summary)
-        and "# Coach Report\nfake"
-        or "# Coach Report\nfake"
-    )
+    def produce_report(summary, coach_cfg):
+        calls["summary"] = summary
+        return "# Coach Report\nfake"
+
+    coach_mod.produce_report = produce_report
 
     biomech_mod = types.ModuleType("badminton_track.biomech")
     biomech_mod.run_biomech = lambda video, cfg_b: biomech_windows
