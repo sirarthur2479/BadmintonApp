@@ -7,6 +7,7 @@ sessions don't exist server-side).
 """
 
 import asyncio
+import os
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -123,3 +124,66 @@ def resume_or_fail_orphaned_jobs(settings: Settings, worker: JobWorker) -> None:
         ]
     for job_id in queued:
         worker.kick(job_id)
+
+
+def real_pipeline_runner(video_path: str, mode: str, out_dir: str) -> PipelineResult:
+    """The only place that imports badminton_track — lazily, so the backend
+    boots and serves every non-video route without the heavy ML extras.
+    Raises with actionable messages; the worker stores them verbatim on the
+    failed job. Runs inside asyncio.to_thread (sync CPU-bound code).
+
+    Env knobs (home-server MVP): TRACK_CONFIG (YAML path, else defaults),
+    CALIBRATION_NAME (default 'default') for footwork's court homography.
+    """
+    try:
+        from badminton_track import coach
+        from badminton_track.config import load_config
+    except ModuleNotFoundError as exc:
+        raise RuntimeError(
+            "badminton_track is not installed in the server environment — "
+            "install it next to the backend: pip install -e ../badminton_track"
+        ) from exc
+
+    cfg_path = os.environ.get("TRACK_CONFIG")
+    cfg = load_config(Path(cfg_path) if cfg_path else None)
+    out = Path(out_dir)
+
+    stats = aggregates = biomech_rows = None
+    court_map_path = ""
+
+    if mode in ("footwork", "full"):
+        # Config check before the heavy CV imports: a missing calibration
+        # must fail fast and actionably, not after loading ultralytics.
+        calib_name = os.environ.get("CALIBRATION_NAME", "default")
+        calib_path = Path(cfg.footwork.data_dir) / f"calibration-{calib_name}.json"
+        if not calib_path.exists():
+            raise RuntimeError(
+                f"no calibration '{calib_name}' at {calib_path} — on the "
+                f"server run: badminton-track calibrate <video> --name "
+                f"{calib_name}"
+            )
+
+        from badminton_track import calibrate, courtmap, footwork, metrics
+
+        calib = calibrate.Calibration.load(calib_path)
+        df = footwork.run_footwork(Path(video_path), calib, cfg.footwork)
+        filled, _gaps = metrics.interpolate_gaps(df, cfg.footwork.max_gap_s)
+        episodes = metrics.detect_episodes(
+            filled, cfg.footwork.base_point_m, cfg.footwork.base_radius_m
+        )
+        stats = metrics.episode_summary(episodes)
+        aggregates = metrics.session_aggregates(filled)
+        court_map = out / "court-map.png"
+        courtmap.render_court_map(filled, episodes, cfg.footwork, court_map)
+        court_map_path = str(court_map)
+
+    if mode in ("biomech", "full"):
+        from badminton_track import biomech
+
+        rows = biomech.run_biomech(Path(video_path), cfg.biomech)
+        biomech_rows = rows if len(rows) else None
+
+    summary = coach.build_summary(stats, aggregates, biomech_rows)
+    report = out / "coach-report.md"
+    report.write_text(coach.produce_report(summary, cfg.coach))
+    return PipelineResult(report_path=str(report), court_map_path=court_map_path)
