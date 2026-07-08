@@ -211,3 +211,88 @@ def test_head_complete_or_aborted_410(client, auth_headers, settings):
             )
         resp = client.head(location, headers={**auth_headers, **TUS})
         assert resp.status_code == 410, status
+
+
+# --- Slice 3: PATCH chunk append ---
+
+
+def patch_chunk(client, auth_headers, location: str, offset: int, body: bytes):
+    return client.patch(
+        location,
+        headers={
+            **auth_headers,
+            **TUS,
+            "Content-Type": "application/offset+octet-stream",
+            "Upload-Offset": str(offset),
+        },
+        content=body,
+    )
+
+
+def test_patch_appends_chunk_and_advances_offset(client, auth_headers, settings):
+    player_id = make_player(client, auth_headers)
+    location = create_upload(
+        client, auth_headers, player_id, length=64
+    ).headers["Location"]
+
+    resp = patch_chunk(client, auth_headers, location, 0, b"a" * 40)
+
+    assert resp.status_code == 204, resp.text
+    assert resp.headers["Upload-Offset"] == "40"
+    assert resp.headers["Tus-Resumable"] == "1.0.0"
+
+    with get_conn(settings) as conn:
+        row = conn.execute("SELECT * FROM uploads").fetchone()
+    assert row["offset_bytes"] == 40
+    assert row["status"] == "in_progress"
+    assert Path(row["storage_path"]).read_bytes() == b"a" * 40
+
+
+def test_patch_wrong_offset_409(client, auth_headers):
+    player_id = make_player(client, auth_headers)
+    location = create_upload(
+        client, auth_headers, player_id, length=64
+    ).headers["Location"]
+
+    resp = patch_chunk(client, auth_headers, location, 10, b"a" * 10)
+
+    assert resp.status_code == 409
+
+
+def test_patch_wrong_content_type_415(client, auth_headers):
+    player_id = make_player(client, auth_headers)
+    location = create_upload(
+        client, auth_headers, player_id, length=64
+    ).headers["Location"]
+
+    resp = client.patch(
+        location,
+        headers={
+            **auth_headers,
+            **TUS,
+            "Content-Type": "application/octet-stream",
+            "Upload-Offset": "0",
+        },
+        content=b"a" * 10,
+    )
+
+    assert resp.status_code == 415
+
+
+def test_patch_missing_tus_resumable_header_412(client, auth_headers):
+    player_id = make_player(client, auth_headers)
+    location = create_upload(
+        client, auth_headers, player_id, length=64
+    ).headers["Location"]
+
+    resp = client.patch(
+        location,
+        headers={
+            **auth_headers,
+            "Content-Type": "application/offset+octet-stream",
+            "Upload-Offset": "0",
+        },
+        content=b"a" * 10,
+    )
+
+    assert resp.status_code == 412
