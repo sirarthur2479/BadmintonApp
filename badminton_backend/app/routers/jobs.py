@@ -6,9 +6,11 @@ non-leaking 404, matching require_player.
 """
 
 import sqlite3
+from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import FileResponse
 
 from ..database import get_conn
 from ..deps import current_account
@@ -55,3 +57,30 @@ def list_jobs(
             (sessionId, account["id"]),
         ).fetchall()
     return [dict(r) for r in rows]
+
+
+def _artifact_response(row: dict, column: str) -> FileResponse:
+    """404 unless the job is done AND the artifact exists — a job without a
+    court map (biomech mode) 404s the same as a missing job, leaking nothing."""
+    path = row.get(column)
+    if row["status"] != "done" or not path or not Path(path).exists():
+        raise HTTPException(status_code=404, detail="artifact not available")
+    return FileResponse(path)
+
+
+@router.get("/{job_id}/report")
+def download_report(
+    job_id: str,
+    request: Request,
+    account: Annotated[sqlite3.Row, Depends(current_account)],
+) -> FileResponse:
+    return _artifact_response(get_job(job_id, request, account), "reportPath")
+
+
+@router.get("/{job_id}/court-map")
+def download_court_map(
+    job_id: str,
+    request: Request,
+    account: Annotated[sqlite3.Row, Depends(current_account)],
+) -> FileResponse:
+    return _artifact_response(get_job(job_id, request, account), "courtMapPath")
