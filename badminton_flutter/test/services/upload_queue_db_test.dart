@@ -107,4 +107,55 @@ void main() {
     final sessions = await DatabaseService.getSessions();
     expect(sessions.single.id, 'legacy-1');
   });
+
+  test('v3 to v4 migration adds analysis columns to sessions', () async {
+    await DatabaseService.resetForTests();
+    final path = join(await getDatabasesPath(), DatabaseService.dbName);
+    final v3 = await databaseFactory.openDatabase(
+      path,
+      options: OpenDatabaseOptions(
+        version: 3,
+        onCreate: (db, version) async {
+          await db.execute('CREATE TABLE sessions (id TEXT PRIMARY KEY, '
+              'date TEXT NOT NULL, durationMinutes INTEGER NOT NULL, '
+              'drills TEXT NOT NULL, intensity INTEGER, notes TEXT NOT NULL, '
+              "photoPath TEXT, sessionGoal TEXT NOT NULL DEFAULT '', "
+              'goalAchievementScore INTEGER NOT NULL DEFAULT 3, '
+              "playerRemarks TEXT NOT NULL DEFAULT '', "
+              "coachRemarks TEXT NOT NULL DEFAULT '', "
+              "reflectionAnswersJson TEXT NOT NULL DEFAULT '[]')");
+          await db.execute('CREATE TABLE custom_tags (name TEXT PRIMARY KEY)');
+          await db.execute('CREATE TABLE tournaments (id TEXT PRIMARY KEY, '
+              'name TEXT NOT NULL, date TEXT NOT NULL, location TEXT NOT '
+              'NULL, format TEXT NOT NULL)');
+          await db.execute('CREATE TABLE matches (id TEXT PRIMARY KEY, '
+              'tournamentId TEXT NOT NULL, opponent TEXT NOT NULL, scores '
+              'TEXT NOT NULL, isWin INTEGER NOT NULL, notes TEXT)');
+          await db.execute('CREATE TABLE upload_queue (id TEXT PRIMARY KEY, '
+              'sessionId TEXT NOT NULL, playerId TEXT NOT NULL, mode TEXT '
+              'NOT NULL, filePath TEXT NOT NULL, totalBytes INTEGER NOT '
+              'NULL, sentBytes INTEGER NOT NULL DEFAULT 0, status TEXT NOT '
+              "NULL DEFAULT 'pending', tusUrl TEXT, error TEXT)");
+        },
+      ),
+    );
+    await v3.insert('sessions', {
+      'id': 'legacy-v3',
+      'date': '2026-07-01T00:00:00.000',
+      'durationMinutes': 60,
+      'drills': '["Smash"]',
+      'notes': '',
+    });
+    await v3.close();
+
+    final sessions = await DatabaseService.getSessions();
+    expect(sessions.single.analysisReportPath, isNull);
+
+    await DatabaseService.updateSession(
+      sessions.single.copyWith(analysisReportPath: 'analysis/r.md'),
+    );
+
+    final updated = (await DatabaseService.getSessions()).single;
+    expect(updated.analysisReportPath, 'analysis/r.md');
+  });
 }
