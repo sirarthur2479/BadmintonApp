@@ -296,3 +296,89 @@ def test_patch_missing_tus_resumable_header_412(client, auth_headers):
     )
 
     assert resp.status_code == 412
+
+
+# --- Slice 4: completion seam, integrity, per-upload lock ---
+
+
+def test_final_chunk_marks_complete_and_fires_completion_seam(
+    client, auth_headers, settings, monkeypatch
+):
+    from app.routers import uploads as uploads_module
+
+    completed = []
+    monkeypatch.setattr(
+        uploads_module,
+        "on_upload_complete",
+        lambda row, request: completed.append(dict(row)),
+    )
+
+    player_id = make_player(client, auth_headers)
+    location = create_upload(
+        client, auth_headers, player_id, length=32
+    ).headers["Location"]
+
+    resp = patch_chunk(client, auth_headers, location, 0, b"b" * 32)
+    assert resp.status_code == 204
+
+    with get_conn(settings) as conn:
+        row = conn.execute("SELECT * FROM uploads").fetchone()
+    assert row["status"] == "complete"
+    assert len(completed) == 1
+    assert completed[0]["id"] == row["id"]
+    assert completed[0]["offset_bytes"] == 32
+
+
+def test_three_chunk_upload_with_reprobe_reassembles_byte_identical(
+    client, auth_headers, settings
+):
+    payload = bytes(range(256)) * 4  # 1024 bytes, position-sensitive pattern
+    player_id = make_player(client, auth_headers)
+    location = create_upload(
+        client, auth_headers, player_id, length=len(payload)
+    ).headers["Location"]
+
+    chunks = [payload[:400], payload[400:700], payload[700:]]
+    offset = 0
+    for chunk in chunks:
+        # Simulated WiFi drop: the client re-probes before every PATCH,
+        # exactly what tusc does after a resume.
+        probe = client.head(location, headers={**auth_headers, **TUS})
+        assert int(probe.headers["Upload-Offset"]) == offset
+
+        resp = patch_chunk(client, auth_headers, location, offset, chunk)
+        assert resp.status_code == 204
+        offset += len(chunk)
+        assert int(resp.headers["Upload-Offset"]) == offset
+
+    with get_conn(settings) as conn:
+        row = conn.execute("SELECT * FROM uploads").fetchone()
+    assert row["status"] == "complete"
+    assert Path(row["storage_path"]).read_bytes() == payload
+
+
+def test_overlapping_same_offset_patches_cannot_race(client, auth_headers, settings):
+    """Two concurrent PATCHes claiming offset 0: the per-upload lock must
+    serialize them so exactly one wins and the loser gets the 409 (offset
+    re-checked under the lock), leaving the file uncorrupted."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    player_id = make_player(client, auth_headers)
+    location = create_upload(
+        client, auth_headers, player_id, length=64
+    ).headers["Location"]
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        futures = [
+            pool.submit(patch_chunk, client, auth_headers, location, 0, body)
+            for body in (b"x" * 32, b"y" * 32)
+        ]
+        statuses = sorted(f.result().status_code for f in futures)
+
+    assert statuses == [204, 409]
+
+    with get_conn(settings) as conn:
+        row = conn.execute("SELECT * FROM uploads").fetchone()
+    assert row["offset_bytes"] == 32
+    content = Path(row["storage_path"]).read_bytes()
+    assert content in (b"x" * 32, b"y" * 32)  # one winner, no interleaving
