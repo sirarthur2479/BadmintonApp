@@ -4,6 +4,7 @@
 
 | Task | Summary |
 |---|---|
+| TASK-029 | Backend analysis job queue, no new infra (research: roll-your-own beats Huey/Celery here): `jobs` table (playerId FK, opaque sessionId), `JobWorker` enqueue+kick from the upload-completion seam, serial asyncio processing via `to_thread` with verbatim failure messages (ExtrasMissingError's pip-install hint reaches the job row), lifespan recovery sweep (orphaned `analyzing`→failed "interrupted by server restart", `queued` re-kicked), account-scoped `GET /jobs/{id}` + `GET /jobs?sessionId=` polling routes (non-leaking 404s), `real_pipeline_runner` lazy-imports badminton_track and dispatches footwork/biomech/full (calibration checked before heavy imports). 102/102 pytest green |
 | TASK-028 | Backend tus 1.0.0 Core+Creation upload router (hand-rolled per research — stale wrappers rejected): `uploads` table (opaque `sessionId` correlation key for the offline-first phone, no FK), JWT-authed OPTIONS/POST/HEAD/PATCH/DELETE at `/api/v1/uploads` with full protocol matrix (400/404/409/410/412/413/415), streamed chunk writes + fsync before the SQLite offset advances, per-upload asyncio lock (race test: concurrent same-offset PATCHes → exactly one 204), `on_upload_complete` seam for TASK-029, 3-chunk drop/re-probe byte-identity test; conftest TestClient now context-managed (single event loop, as production). 88/88 pytest green |
 
 ## 2026-07-06
