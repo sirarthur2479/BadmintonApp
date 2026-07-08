@@ -10,6 +10,7 @@ from .deps import current_account
 from .jobs import JobWorker, PipelineRunner, resume_or_fail_orphaned_jobs
 from .models import AccountOut
 from .routers import auth as auth_router
+from .routers import jobs as jobs_router
 from .routers import players as players_router
 from .routers import sessions as sessions_router
 from .routers import tags as tags_router
@@ -54,6 +55,7 @@ def create_app(
     app.include_router(tournaments_router.router, prefix="/api/v1")
     app.include_router(tags_router.router, prefix="/api/v1")
     app.include_router(uploads_router.router, prefix="/api/v1")
+    app.include_router(jobs_router.router, prefix="/api/v1")
 
     @app.get("/api/v1/me", response_model=AccountOut)
     def me(
