@@ -252,3 +252,23 @@ async def append_chunk(
         status_code=204,
         headers={**_TUS_HEADERS, "Upload-Offset": str(new_offset)},
     )
+
+
+@router.delete("/{upload_id}")
+def abort_upload(
+    upload_id: str,
+    request: Request,
+    account: Annotated[sqlite3.Row, Depends(current_account)],
+) -> Response:
+    settings = request.app.state.settings
+    row = _require_upload(upload_id, settings, account)
+
+    with get_conn(settings) as conn:
+        conn.execute(
+            "UPDATE uploads SET status = 'aborted', updated_at = ? WHERE id = ?",
+            (_now(), upload_id),
+        )
+    Path(row["storage_path"]).unlink(missing_ok=True)
+    _locks.pop(upload_id, None)
+
+    return Response(status_code=204, headers=_TUS_HEADERS)
