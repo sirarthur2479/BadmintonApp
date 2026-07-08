@@ -1,6 +1,6 @@
 # Use case: badmintontrack-integration
 
-**Status:** in progress
+**Status:** planned (TASK-028 → TASK-034)
 **Created:** 2026-07-06
 **Source:** owner prompt, pool idea #6 (`ideas/pool.md` §6). Depends on and
 integrates two already-shipped pieces: `badminton_track/` (pool #4 — CV +
