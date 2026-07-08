@@ -17,6 +17,11 @@ class TrainingSession {
   final String coachRemarks;
   final String reflectionAnswersJson;
 
+  /// Local paths of the downloaded BadmintonTrack artifacts, set once the
+  /// server's analysis job finishes (mobile-only; null = no analysis yet).
+  final String? analysisReportPath;
+  final String? analysisCourtMapPath;
+
   const TrainingSession({
     required this.id,
     required this.date,
@@ -30,6 +35,8 @@ class TrainingSession {
     this.playerRemarks = '',
     this.coachRemarks = '',
     this.reflectionAnswersJson = '[]',
+    this.analysisReportPath,
+    this.analysisCourtMapPath,
   });
 
   TrainingSession copyWith({
@@ -45,6 +52,8 @@ class TrainingSession {
     String? playerRemarks,
     String? coachRemarks,
     String? reflectionAnswersJson,
+    String? analysisReportPath,
+    String? analysisCourtMapPath,
   }) {
     return TrainingSession(
       id: id ?? this.id,
@@ -60,6 +69,9 @@ class TrainingSession {
       coachRemarks: coachRemarks ?? this.coachRemarks,
       reflectionAnswersJson:
           reflectionAnswersJson ?? this.reflectionAnswersJson,
+      analysisReportPath: analysisReportPath ?? this.analysisReportPath,
+      analysisCourtMapPath:
+          analysisCourtMapPath ?? this.analysisCourtMapPath,
     );
   }
 
@@ -77,6 +89,8 @@ class TrainingSession {
       'playerRemarks': playerRemarks,
       'coachRemarks': coachRemarks,
       'reflectionAnswersJson': reflectionAnswersJson,
+      'analysisReportPath': analysisReportPath,
+      'analysisCourtMapPath': analysisCourtMapPath,
     };
   }
 
@@ -105,6 +119,8 @@ class TrainingSession {
       playerRemarks: map['playerRemarks'] as String? ?? '',
       coachRemarks: map['coachRemarks'] as String? ?? '',
       reflectionAnswersJson: map['reflectionAnswersJson'] as String? ?? '[]',
+      analysisReportPath: map['analysisReportPath'] as String?,
+      analysisCourtMapPath: map['analysisCourtMapPath'] as String?,
     );
   }
 }

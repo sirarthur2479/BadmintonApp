@@ -73,6 +73,12 @@ void main() {
     await DatabaseService.resetForTests();
   });
 
+  tearDown(() async {
+    // Drain any queue write still in flight (dispatched to the ffi isolate)
+    // before the next setUp closes and deletes the database file.
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+  });
+
   Future<void> settle() => Future<void>.delayed(Duration.zero);
 
   /// The queue advances through real async DB writes (ffi isolate), so
@@ -84,7 +90,7 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 5));
     }
     expect(condition(), isTrue);
-    await Future<void>.delayed(const Duration(milliseconds: 20));
+    await Future<void>.delayed(const Duration(milliseconds: 100));
   }
 
   test('enqueue persists a pending row with the configured player', () async {

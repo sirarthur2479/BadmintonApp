@@ -32,7 +32,7 @@ class DatabaseService {
 
     return openDatabase(
       path,
-      version: 3,
+      version: 4,
       // sqflite leaves foreign keys OFF by default; without this the
       // matches-table ON DELETE CASCADE is inert.
       onConfigure: (db) => db.execute('PRAGMA foreign_keys = ON'),
@@ -84,7 +84,9 @@ class DatabaseService {
         goalAchievementScore INTEGER NOT NULL DEFAULT 3,
         playerRemarks TEXT NOT NULL DEFAULT '',
         coachRemarks TEXT NOT NULL DEFAULT '',
-        reflectionAnswersJson TEXT NOT NULL DEFAULT '[]'
+        reflectionAnswersJson TEXT NOT NULL DEFAULT '[]',
+        analysisReportPath TEXT,
+        analysisCourtMapPath TEXT
       )
     ''');
   }
@@ -116,6 +118,15 @@ class DatabaseService {
     if (oldVersion < 3) {
       // v3: mobile-only video upload queue (TASK-032).
       await _createUploadQueueTable(db);
+    }
+    if (oldVersion >= 2 && oldVersion < 4) {
+      // v4: downloaded analysis artifacts attach to the session (TASK-034).
+      // A v1 upgrader skips this — its rebuild above already created the
+      // sessions table at the current shape, columns included.
+      await db.execute(
+          'ALTER TABLE sessions ADD COLUMN analysisReportPath TEXT');
+      await db.execute(
+          'ALTER TABLE sessions ADD COLUMN analysisCourtMapPath TEXT');
     }
   }
 
