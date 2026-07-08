@@ -164,3 +164,50 @@ def test_create_missing_tus_resumable_header_412(client, auth_headers):
     )
 
     assert resp.status_code == 412
+
+
+# --- Slice 2: HEAD resume probe ---
+
+
+def test_head_reports_current_offset(client, auth_headers):
+    player_id = make_player(client, auth_headers)
+    location = create_upload(client, auth_headers, player_id).headers["Location"]
+
+    resp = client.head(location, headers={**auth_headers, **TUS})
+
+    assert resp.status_code == 200
+    assert resp.headers["Upload-Offset"] == "0"
+    assert resp.headers["Upload-Length"] == "64"
+    assert resp.headers["Cache-Control"] == "no-store"
+    assert resp.headers["Tus-Resumable"] == "1.0.0"
+
+
+def test_head_unknown_id_404_and_foreign_account_404(client, auth_headers):
+    player_id = make_player(client, auth_headers)
+    location = create_upload(client, auth_headers, player_id).headers["Location"]
+
+    unknown = client.head(
+        "/api/v1/uploads/no-such-id", headers={**auth_headers, **TUS}
+    )
+    assert unknown.status_code == 404
+
+    other_headers = register_and_login(client, email="probe@example.com")
+    foreign = client.head(location, headers={**other_headers, **TUS})
+    # The ownership 404, not a missing-route 404 (HEAD carries no body,
+    # so the marker is the tus header set by the real handler's exception).
+    assert foreign.status_code == 404
+    assert foreign.headers.get("Tus-Resumable") == "1.0.0"
+
+
+def test_head_complete_or_aborted_410(client, auth_headers, settings):
+    player_id = make_player(client, auth_headers)
+    location = create_upload(client, auth_headers, player_id).headers["Location"]
+    upload_id = location.rsplit("/", 1)[1]
+
+    for status in ("complete", "aborted"):
+        with get_conn(settings) as conn:
+            conn.execute(
+                "UPDATE uploads SET status = ? WHERE id = ?", (status, upload_id)
+            )
+        resp = client.head(location, headers={**auth_headers, **TUS})
+        assert resp.status_code == 410, status
