@@ -7,6 +7,9 @@ imported here.
 """
 
 import time
+from pathlib import Path
+
+import pytest
 from contextlib import contextmanager
 
 from fastapi.testclient import TestClient
@@ -294,3 +297,89 @@ def test_list_jobs_by_session_id_newest_first(settings):
 def test_jobs_routes_require_auth(client):
     assert client.get("/api/v1/jobs/x").status_code == 401
     assert client.get("/api/v1/jobs", params={"sessionId": "s"}).status_code == 401
+
+
+# --- Slice 5: real pipeline runner (lazy badminton_track import) ---
+
+
+def test_real_runner_reports_missing_extras_as_failed_job(settings):
+    """badminton_track is deliberately NOT installed in the backend venv:
+    the default runner must turn that into an actionable failed job, not a
+    server crash."""
+    with TestClient(create_app(settings)) as client:  # default runner
+        headers = register_and_login(client)
+        player_id = make_player(client, headers)
+        complete_upload(client, headers, player_id)
+
+        job = wait_for_job(settings)
+
+    assert job["status"] == "failed"
+    assert "badminton_track" in job["errorMessage"]
+    assert "install" in job["errorMessage"]
+
+
+def _fake_track_package(monkeypatch, tmp_path, *, biomech_windows):
+    """Install a minimal fake badminton_track into sys.modules."""
+    import sys
+    import types
+
+    calls = {}
+
+    pkg = types.ModuleType("badminton_track")
+    config_mod = types.ModuleType("badminton_track.config")
+    cfg = types.SimpleNamespace(
+        footwork=types.SimpleNamespace(
+            data_dir=tmp_path, max_gap_s=0.5, base_point_m=(3.05, 8.68),
+            base_radius_m=1.0,
+        ),
+        biomech=types.SimpleNamespace(),
+        coach=types.SimpleNamespace(),
+    )
+    config_mod.load_config = lambda path: cfg
+
+    coach_mod = types.ModuleType("badminton_track.coach")
+    coach_mod.build_summary = lambda stats, aggregates, rows: {
+        "stats": stats, "aggregates": aggregates, "rows": rows,
+    }
+    coach_mod.produce_report = (
+        lambda summary, coach_cfg: calls.setdefault("summary", summary)
+        and "# Coach Report\nfake"
+        or "# Coach Report\nfake"
+    )
+
+    biomech_mod = types.ModuleType("badminton_track.biomech")
+    biomech_mod.run_biomech = lambda video, cfg_b: biomech_windows
+
+    pkg.coach = coach_mod
+    pkg.biomech = biomech_mod
+    monkeypatch.setitem(sys.modules, "badminton_track", pkg)
+    monkeypatch.setitem(sys.modules, "badminton_track.config", config_mod)
+    monkeypatch.setitem(sys.modules, "badminton_track.coach", coach_mod)
+    monkeypatch.setitem(sys.modules, "badminton_track.biomech", biomech_mod)
+    return calls
+
+
+def test_real_runner_biomech_mode_writes_report_no_court_map(
+    monkeypatch, tmp_path
+):
+    calls = _fake_track_package(monkeypatch, tmp_path, biomech_windows=["w1"])
+
+    from app.jobs import real_pipeline_runner
+
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+    result = real_pipeline_runner("v.mp4", "biomech", str(out_dir))
+
+    report = Path(result.report_path)
+    assert report.read_text().startswith("# Coach Report")
+    assert result.court_map_path == ""
+    assert calls["summary"]["rows"] == ["w1"]
+
+
+def test_real_runner_footwork_mode_requires_calibration(monkeypatch, tmp_path):
+    _fake_track_package(monkeypatch, tmp_path, biomech_windows=[])
+
+    from app.jobs import real_pipeline_runner
+
+    with pytest.raises(RuntimeError, match="calibration"):
+        real_pipeline_runner("v.mp4", "footwork", str(tmp_path))
