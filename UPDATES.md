@@ -1,5 +1,11 @@
 # Updates
 
+## 2026-07-08
+
+| Task | Summary |
+|---|---|
+| TASK-028 | Backend tus 1.0.0 Core+Creation upload router (hand-rolled per research — stale wrappers rejected): `uploads` table (opaque `sessionId` correlation key for the offline-first phone, no FK), JWT-authed OPTIONS/POST/HEAD/PATCH/DELETE at `/api/v1/uploads` with full protocol matrix (400/404/409/410/412/413/415), streamed chunk writes + fsync before the SQLite offset advances, per-upload asyncio lock (race test: concurrent same-offset PATCHes → exactly one 204), `on_upload_complete` seam for TASK-029, 3-chunk drop/re-probe byte-identity test; conftest TestClient now context-managed (single event loop, as production). 88/88 pytest green |
+
 ## 2026-07-06
 
 | Task | Summary |
