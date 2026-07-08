@@ -7,7 +7,9 @@ status codes, and offset semantics follow the tus 1.0.0 spec exactly.
 
 import base64
 import uuid
+from pathlib import Path
 
+from app.database import get_conn
 from tests.conftest import register_and_login
 
 TUS = {"Tus-Resumable": "1.0.0"}
@@ -97,10 +99,6 @@ def test_create_parses_metadata_and_scopes_to_own_player(
     assert resp.status_code == 201
 
     # The row landed with parsed metadata and a real zero-length file on disk.
-    from pathlib import Path
-
-    from app.database import get_conn
-
     with get_conn(settings) as conn:
         row = conn.execute("SELECT * FROM uploads").fetchone()
     assert row["playerId"] == player_id
