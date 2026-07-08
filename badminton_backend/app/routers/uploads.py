@@ -40,12 +40,14 @@ def _lock_for(upload_id: str) -> asyncio.Lock:
 def on_upload_complete(row: sqlite3.Row, request: Request) -> None:
     """Called once when an upload's final byte lands: enqueue the analysis
     job for the in-process worker (TASK-029)."""
-    request.app.state.job_worker.enqueue(
+    worker = request.app.state.job_worker
+    job_id = worker.enqueue(
         player_id=row["playerId"],
         session_id=row["sessionId"],
         video_path=row["storage_path"],
         mode=row["mode"],
     )
+    worker.kick(job_id)
 
 
 def _now() -> str:
