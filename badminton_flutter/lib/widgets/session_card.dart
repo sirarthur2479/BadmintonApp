@@ -5,10 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../models/session.dart';
+import '../providers/analysis_status_provider.dart';
 import '../providers/upload_queue_provider.dart';
 import '../services/photo_store.dart';
 import '../theme/app_theme.dart';
 import 'analyse_video_button.dart';
+import 'analysis_status_card.dart';
 import 'star_rating.dart';
 import 'upload_status_row.dart';
 
@@ -163,6 +165,12 @@ class SessionCard extends StatelessWidget {
             if (!kIsWeb &&
                 context.watch<UploadQueueProvider?>() != null) ...[
               UploadStatusRow(sessionId: session.id),
+              AnalysisStatusCard(
+                session: session,
+                job: context
+                    .watch<AnalysisStatusProvider?>()
+                    ?.jobFor(session.id),
+              ),
               Align(
                 alignment: Alignment.centerLeft,
                 child: AnalyseVideoButton(sessionId: session.id),

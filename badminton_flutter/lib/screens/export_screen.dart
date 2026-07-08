@@ -101,6 +101,9 @@ class _ExportScreenState extends State<ExportScreen> {
                         sessions: provider.sessions,
                         from: _from,
                         to: _to,
+                        analysisReports: ExportService.loadAnalysisReports(
+                          provider.sessions,
+                        ),
                       ),
                       subject: 'Training log export',
                     ),

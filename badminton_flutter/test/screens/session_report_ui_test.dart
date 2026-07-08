@@ -85,7 +85,9 @@ void main() {
 
   testWidgets('done card opens the report view with markdown and court map',
       (tester) async {
-    final dir = await Directory.systemTemp.createTemp('report_ui');
+    // Sync IO only: awaiting real async IO inside the fake-async test zone
+    // hangs the test.
+    final dir = Directory.systemTemp.createTempSync('report_ui');
     final report = File('${dir.path}/coach-report.md')
       ..writeAsStringSync('# Coach Report\nSharper lunges next block.');
     final courtMap = File('${dir.path}/court-map.png')
@@ -100,14 +102,21 @@ void main() {
     )));
 
     await tester.tap(find.textContaining('Coach report'));
-    await tester.pumpAndSettle();
+    // Image.file does real-async IO + decode that the fake-async test zone
+    // cannot advance: give it a real-async window, then draw.
+    await tester.pump();
+    await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 300)));
+    await tester.pump(const Duration(seconds: 1));
+
+    await tester.pump(const Duration(seconds: 1));
 
     expect(find.byType(AnalysisReportScreen), findsOneWidget);
     expect(find.textContaining('Sharper lunges next block.'),
         findsOneWidget);
-    expect(find.byType(Image), findsOneWidget);
+    expect(find.byType(Image, skipOffstage: false), findsOneWidget);
 
-    await dir.delete(recursive: true);
+    dir.deleteSync(recursive: true);
   });
 
   test('markdown export includes the coach report section when present', () {
