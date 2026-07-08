@@ -16,6 +16,9 @@ class UploadQueueProvider extends ChangeNotifier {
   TusUploader? _activeUploader;
   String? _activeId;
 
+  /// While true (pauseAll), nothing starts — the TASK-033 WiFi gate's hook.
+  bool _gatePaused = false;
+
   UploadQueueProvider({required TusUploader Function() uploaderFactory})
       : _uploaderFactory = uploaderFactory;
 
@@ -61,8 +64,52 @@ class UploadQueueProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Reloads the persisted queue after an app restart and re-drives
+  /// anything unfinished. A row still marked `uploading` means the app was
+  /// killed mid-transfer — its tusUrl lets the uploader resume from the
+  /// server's confirmed offset, so nothing restarts from zero.
+  Future<void> resumePending() async {
+    final stored = await DatabaseService.getUploadTasks();
+    _tasks
+      ..clear()
+      ..addAll(stored);
+    for (final task in _tasks) {
+      if (task.status == UploadStatus.uploading ||
+          task.status == UploadStatus.paused) {
+        await _update(task.copyWith(status: UploadStatus.pending));
+      }
+    }
+    notifyListeners();
+    _startNext();
+  }
+
+  /// Stops the in-flight transfer and gates new starts (WiFi lost, TASK-033).
+  Future<void> pauseAll() async {
+    _gatePaused = true;
+    final activeId = _activeId;
+    if (activeId != null) {
+      await _activeUploader?.pause();
+      _clearActive();
+      final current = _byId(activeId);
+      if (current != null) {
+        await _update(current.copyWith(status: UploadStatus.paused));
+      }
+    }
+  }
+
+  /// Lifts the gate and re-drives paused/pending work (WiFi back).
+  Future<void> resumeAll() async {
+    _gatePaused = false;
+    for (final task in List.of(_tasks)) {
+      if (task.status == UploadStatus.paused) {
+        await _update(task.copyWith(status: UploadStatus.pending));
+      }
+    }
+    _startNext();
+  }
+
   void _startNext() {
-    if (_activeId != null) return;
+    if (_gatePaused || _activeId != null) return;
     final next = _tasks
         .cast<UploadTask?>()
         .firstWhere((t) => t!.status == UploadStatus.pending,

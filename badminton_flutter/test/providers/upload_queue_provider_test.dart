@@ -73,6 +73,18 @@ void main() {
 
   Future<void> settle() => Future<void>.delayed(Duration.zero);
 
+  /// The queue advances through real async DB writes (ffi isolate), so
+  /// zero-delay settles aren't always enough — poll, then let the last
+  /// write flush before the test ends (setUp closes the db).
+  Future<void> waitFor(bool Function() condition) async {
+    final deadline = DateTime.now().add(const Duration(seconds: 2));
+    while (!condition() && DateTime.now().isBefore(deadline)) {
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+    }
+    expect(condition(), isTrue);
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+  }
+
   test('enqueue persists a pending row with the configured player', () async {
     final provider = makeProvider();
 
@@ -193,11 +205,13 @@ void main() {
     );
 
     created.single.complete();
-    await settle();
-    await settle();
+    await waitFor(() => created.length == 2);
 
-    expect(created, hasLength(2), reason: 'queue advances after completion');
     expect(created.last.task!.filePath, '/videos/b.mp4');
+    expect(
+      provider.tasks.where((t) => t.status == UploadStatus.done),
+      hasLength(1),
+    );
   });
 
   // --- Slice 3: restart recovery + pause/resume seams ---
