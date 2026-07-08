@@ -1,11 +1,13 @@
 import 'dart:async';
 
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'package:badminton_flutter/models/upload_task.dart';
 import 'package:badminton_flutter/providers/upload_queue_provider.dart';
+import 'package:badminton_flutter/services/connectivity_gate.dart';
 import 'package:badminton_flutter/services/database_service.dart';
 import 'package:badminton_flutter/services/tus_uploader.dart';
 
@@ -331,5 +333,106 @@ void main() {
     expect(created.last.task!.tusUrl, 'http://server/api/v1/uploads/u-1',
         reason: 'resume must re-use the server upload, not start over');
     expect(provider.tasks.single.status, UploadStatus.uploading);
+  });
+
+  // --- TASK-033: WiFi-only gating ---
+
+  group('wifi gate', () {
+    late StreamController<List<ConnectivityResult>> connectivity;
+    List<ConnectivityResult> current = const [ConnectivityResult.wifi];
+
+    setUp(() {
+      connectivity = StreamController<List<ConnectivityResult>>.broadcast();
+      current = const [ConnectivityResult.wifi];
+    });
+
+    Future<UploadQueueProvider> gatedProvider() async {
+      final gate = ConnectivityGate(
+        stream: connectivity.stream,
+        check: () async => current,
+      );
+      await gate.initialise();
+      return UploadQueueProvider(
+        uploaderFactory: () {
+          final uploader = FakeTusUploader();
+          created.add(uploader);
+          return uploader;
+        },
+        gate: gate,
+      );
+    }
+
+    test('enqueue off wifi leaves the row pending and starts nothing',
+        () async {
+      current = const [ConnectivityResult.mobile, ConnectivityResult.vpn];
+      final provider = await gatedProvider();
+
+      await provider.enqueue(
+        sessionId: 'sess-1',
+        filePath: '/videos/a.mp4',
+        mode: 'footwork',
+        totalBytes: 100,
+      );
+      await settle();
+
+      expect(created, isEmpty, reason: 'cellular must never carry a byte');
+      expect(provider.tasks.single.status, UploadStatus.pending);
+    });
+
+    test('wifi loss pauses the inflight upload immediately', () async {
+      final provider = await gatedProvider();
+      await provider.enqueue(
+        sessionId: 'sess-1',
+        filePath: '/videos/a.mp4',
+        mode: 'footwork',
+        totalBytes: 100,
+      );
+      await settle();
+      expect(provider.tasks.single.status, UploadStatus.uploading);
+
+      connectivity.add(const [ConnectivityResult.mobile]);
+      await waitFor(
+          () => provider.tasks.single.status == UploadStatus.paused);
+
+      expect(created.single.pauseCalls, 1);
+    });
+
+    test('wifi return resumes paused work and starts pending rows', () async {
+      current = const [ConnectivityResult.mobile];
+      final provider = await gatedProvider();
+      await provider.enqueue(
+        sessionId: 'sess-1',
+        filePath: '/videos/a.mp4',
+        mode: 'footwork',
+        totalBytes: 100,
+      );
+      await settle();
+      expect(created, isEmpty);
+
+      connectivity.add(const [ConnectivityResult.wifi]);
+      await waitFor(() => created.length == 1);
+
+      expect(provider.tasks.single.status, UploadStatus.uploading);
+    });
+
+    test('startup resumePending respects current connectivity', () async {
+      await DatabaseService.insertUploadTask(const UploadTask(
+        id: 'ut-1',
+        sessionId: 's',
+        playerId: 'pl-1',
+        mode: 'footwork',
+        filePath: '/v.mp4',
+        totalBytes: 10,
+        status: UploadStatus.uploading,
+      ));
+      current = const [ConnectivityResult.none];
+      final provider = await gatedProvider();
+
+      await provider.resumePending();
+      await settle();
+
+      expect(created, isEmpty);
+      expect(provider.tasks.single.status, UploadStatus.pending);
+    });
   });
 }
