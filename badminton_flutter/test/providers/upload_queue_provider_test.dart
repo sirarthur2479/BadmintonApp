@@ -199,4 +199,123 @@ void main() {
     expect(created, hasLength(2), reason: 'queue advances after completion');
     expect(created.last.task!.filePath, '/videos/b.mp4');
   });
+
+  // --- Slice 3: restart recovery + pause/resume seams ---
+
+  test('resumePending re-drives interrupted uploads with their tus url',
+      () async {
+    // Rows left behind by a killed app: one mid-transfer, one waiting.
+    await DatabaseService.insertUploadTask(const UploadTask(
+      id: 'ut-killed',
+      sessionId: 'sess-1',
+      playerId: 'pl-1',
+      mode: 'footwork',
+      filePath: '/videos/a.mp4',
+      totalBytes: 1000,
+      sentBytes: 400,
+      status: UploadStatus.uploading,
+      tusUrl: 'http://server/api/v1/uploads/u-1',
+    ));
+    await DatabaseService.insertUploadTask(const UploadTask(
+      id: 'ut-waiting',
+      sessionId: 'sess-2',
+      playerId: 'pl-1',
+      mode: 'biomech',
+      filePath: '/videos/b.mp4',
+      totalBytes: 500,
+    ));
+
+    final provider = makeProvider();
+    await provider.resumePending();
+    await settle();
+
+    expect(provider.tasks, hasLength(2));
+    expect(created, hasLength(1), reason: 'still one at a time');
+    // The interrupted one goes first and carries its resume URL.
+    expect(created.single.task!.id, 'ut-killed');
+    expect(
+      created.single.task!.tusUrl,
+      'http://server/api/v1/uploads/u-1',
+    );
+  });
+
+  test('resumePending skips done and failed rows', () async {
+    await DatabaseService.insertUploadTask(const UploadTask(
+      id: 'ut-done',
+      sessionId: 's',
+      playerId: 'pl-1',
+      mode: 'footwork',
+      filePath: '/v.mp4',
+      totalBytes: 1,
+      status: UploadStatus.done,
+    ));
+    await DatabaseService.insertUploadTask(const UploadTask(
+      id: 'ut-failed',
+      sessionId: 's',
+      playerId: 'pl-1',
+      mode: 'footwork',
+      filePath: '/v.mp4',
+      totalBytes: 1,
+      status: UploadStatus.failed,
+      error: 'boom',
+    ));
+
+    final provider = makeProvider();
+    await provider.resumePending();
+    await settle();
+
+    expect(created, isEmpty);
+    expect(provider.tasks, hasLength(2), reason: 'still listed for the UI');
+  });
+
+  test('pauseAll pauses the active upload and gates new starts', () async {
+    final provider = makeProvider();
+    await provider.enqueue(
+      sessionId: 'sess-1',
+      filePath: '/videos/a.mp4',
+      mode: 'footwork',
+      totalBytes: 1000,
+    );
+    await settle();
+
+    await provider.pauseAll();
+
+    expect(created.single.pauseCalls, 1);
+    expect(provider.tasks.single.status, UploadStatus.paused);
+    final stored = (await DatabaseService.getUploadTasks()).single;
+    expect(stored.status, UploadStatus.paused);
+
+    // While paused, a new enqueue queues but must not start.
+    await provider.enqueue(
+      sessionId: 'sess-2',
+      filePath: '/videos/b.mp4',
+      mode: 'biomech',
+      totalBytes: 10,
+    );
+    await settle();
+    expect(created, hasLength(1));
+  });
+
+  test('resumeAll restarts the paused upload', () async {
+    final provider = makeProvider();
+    await provider.enqueue(
+      sessionId: 'sess-1',
+      filePath: '/videos/a.mp4',
+      mode: 'footwork',
+      totalBytes: 1000,
+    );
+    await settle();
+    created.single.emitTusUrl('http://server/api/v1/uploads/u-1');
+    await settle();
+    await provider.pauseAll();
+
+    await provider.resumeAll();
+    await settle();
+
+    expect(created, hasLength(2));
+    expect(created.last.task!.id, provider.tasks.single.id);
+    expect(created.last.task!.tusUrl, 'http://server/api/v1/uploads/u-1',
+        reason: 'resume must re-use the server upload, not start over');
+    expect(provider.tasks.single.status, UploadStatus.uploading);
+  });
 }
