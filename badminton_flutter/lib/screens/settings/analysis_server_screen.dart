@@ -138,12 +138,14 @@ class _AnalysisServerScreenState extends State<AnalysisServerScreen> {
             const SizedBox(height: 8),
             const Text('Uploads belong to:'),
             for (final player in _players)
-              RadioListTile<String>(
+              ListTile(
                 title: Text(player.name),
-                value: player.id,
-                groupValue: provider.playerId,
-                onChanged: (_) =>
-                    provider.selectPlayer(player.id, player.name),
+                leading: Icon(
+                  provider.playerId == player.id
+                      ? Icons.radio_button_checked
+                      : Icons.radio_button_off,
+                ),
+                onTap: () => provider.selectPlayer(player.id, player.name),
               ),
           ],
           if (_error != null)
