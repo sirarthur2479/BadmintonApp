@@ -112,3 +112,24 @@ def test_nginx_denies_uploads_path_before_api_proxy():
     deny_block = conf[deny:conf.find("}", deny)]
     assert "return 403" in deny_block
     assert "proxy_pass" not in deny_block
+
+
+def test_setup_doc_documents_lan_only_ingest_and_extras():
+    doc = (
+        BACKEND.parent
+        / "badminton_flutter"
+        / "docs"
+        / "self-hosting-setup.md"
+    ).read_text()
+
+    assert "## Video Analysis (LAN-Only)" in doc
+    # The address the owner types into the app's settings screen.
+    assert "8001" in doc
+    # The privacy invariant, stated where the operator will read it.
+    assert "never" in doc.lower() and "tunnel" in doc.lower()
+    # Running the pipeline needs badminton_track installed next to the
+    # backend, plus a saved court calibration.
+    assert "badminton_track" in doc
+    assert "calibrate" in doc
+    # Env knobs the runner reads.
+    assert "UPLOAD_DIR" in doc and "CALIBRATION_NAME" in doc
