@@ -134,6 +134,47 @@ Verify from outside your home network (e.g. mobile data):
 
 ---
 
+## Video Analysis (LAN-Only)
+
+The mobile app can upload training videos to this server for automatic
+analysis (BadmintonTrack pipeline: footwork/biomech + coach report). Two
+things make this different from the rest of the setup:
+
+**The ingest port never goes through the tunnel.** Footage of a minor must
+stay on the home network, so video upload and job-status routes are used via
+host port **8001** (`ports: "8001:8000"` in `docker-compose.yml`), and
+`nginx.conf` explicitly returns 403 for `/api/v1/uploads` on the tunneled
+hostname. In the app's settings screen, enter the server's LAN address —
+e.g. `http://192.168.1.50:8001` — as the analysis server. Do not create a
+public DNS record or tunnel route for this port.
+
+**The analysis pipeline is an optional install.** The backend serves
+accounts/players/data without it; analysis jobs will fail with an
+actionable message until you install the pipeline next to the backend and
+save a court calibration:
+
+```bash
+# In the backend's Python environment on the server:
+pip install -e ../badminton_track   # plus its ML extras, see its README
+
+# One-time court calibration (name it to match CALIBRATION_NAME):
+badminton-track calibrate <sample-video.mp4> --name default
+```
+
+Environment knobs (set on the `backend` service in `docker-compose.yml`):
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `UPLOAD_DIR` | `/data/uploads` | where uploaded videos + reports land (inside the backed-up `./data` volume) |
+| `CALIBRATION_NAME` | `default` | which saved court calibration footwork mode uses |
+| `TRACK_CONFIG` | (defaults) | optional YAML overriding pipeline config |
+
+Uploaded videos and analysis outputs live under `deploy/data/uploads/` —
+they are part of the same "back up this one directory" story as the
+database, and stay out of git like all other footage.
+
+---
+
 ## Migrating to a New Server
 
 SQLite is a single file — migration is a straightforward copy.
