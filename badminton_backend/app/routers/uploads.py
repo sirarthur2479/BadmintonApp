@@ -19,6 +19,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 
 from ..database import get_conn
 from ..deps import current_account
+from ..settings import Settings
 
 router = APIRouter(prefix="/uploads", tags=["uploads"])
 
@@ -65,12 +66,16 @@ def _parse_metadata(header: str) -> dict[str, str]:
         except Exception:
             raise HTTPException(
                 status_code=400, detail=f"invalid Upload-Metadata value for '{key}'"
-            )
+            ) from None
     return metadata
 
 
 def _require_upload(
-    upload_id: str, settings, account: sqlite3.Row, *, live_only: bool = True
+    upload_id: str,
+    settings: Settings,
+    account: sqlite3.Row,
+    *,
+    live_only: bool = True,
 ) -> sqlite3.Row:
     """The upload row IF it belongs to the caller's account; else 404
     (non-leaking, same posture as require_player). 410 for finished rows
