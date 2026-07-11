@@ -1,4 +1,5 @@
 import sqlite3
+from contextlib import asynccontextmanager
 from typing import Annotated
 
 from fastapi import Depends, FastAPI
@@ -6,21 +7,39 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .database import init_db
 from .deps import current_account
+from .jobs import (
+    JobWorker,
+    PipelineRunner,
+    real_pipeline_runner,
+    resume_or_fail_orphaned_jobs,
+)
 from .models import AccountOut
 from .routers import auth as auth_router
+from .routers import jobs as jobs_router
 from .routers import players as players_router
 from .routers import sessions as sessions_router
 from .routers import tags as tags_router
 from .routers import tournaments as tournaments_router
+from .routers import uploads as uploads_router
 from .settings import Settings
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+def create_app(
+    settings: Settings | None = None, runner: PipelineRunner | None = None
+) -> FastAPI:
     settings = settings or Settings.from_env()
     init_db(settings)
 
-    app = FastAPI(title="badminton-backend")
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        # Runs once per process start, on the serving event loop (kick needs
+        # it), before any request can race the sweep.
+        resume_or_fail_orphaned_jobs(settings, app.state.job_worker)
+        yield
+
+    app = FastAPI(title="badminton-backend", lifespan=lifespan)
     app.state.settings = settings
+    app.state.job_worker = JobWorker(settings, runner or real_pipeline_runner)
     # Same-origin in production (nginx serves both); permissive CORS keeps
     # local `flutter run -d chrome` development working.
     app.add_middleware(
@@ -34,6 +53,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(sessions_router.router, prefix="/api/v1")
     app.include_router(tournaments_router.router, prefix="/api/v1")
     app.include_router(tags_router.router, prefix="/api/v1")
+    app.include_router(uploads_router.router, prefix="/api/v1")
+    app.include_router(jobs_router.router, prefix="/api/v1")
 
     @app.get("/api/v1/me", response_model=AccountOut)
     def me(

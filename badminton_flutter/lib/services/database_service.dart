@@ -5,6 +5,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../models/session.dart';
 import '../models/tournament.dart';
+import '../models/upload_task.dart';
 import 'api_service.dart';
 
 /// On web: data lives on the self-hosted backend (set [webApi] at startup).
@@ -31,7 +32,7 @@ class DatabaseService {
 
     return openDatabase(
       path,
-      version: 2,
+      version: 4,
       // sqflite leaves foreign keys OFF by default; without this the
       // matches-table ON DELETE CASCADE is inert.
       onConfigure: (db) => db.execute('PRAGMA foreign_keys = ON'),
@@ -39,6 +40,7 @@ class DatabaseService {
       onCreate: (db, version) async {
         await _createSessionsTable(db);
         await _createCustomTagsTable(db);
+        await _createUploadQueueTable(db);
         await db.execute('''
           CREATE TABLE tournaments (
             id TEXT PRIMARY KEY,
@@ -82,7 +84,9 @@ class DatabaseService {
         goalAchievementScore INTEGER NOT NULL DEFAULT 3,
         playerRemarks TEXT NOT NULL DEFAULT '',
         coachRemarks TEXT NOT NULL DEFAULT '',
-        reflectionAnswersJson TEXT NOT NULL DEFAULT '[]'
+        reflectionAnswersJson TEXT NOT NULL DEFAULT '[]',
+        analysisReportPath TEXT,
+        analysisCourtMapPath TEXT
       )
     ''');
   }
@@ -111,10 +115,69 @@ class DatabaseService {
         await _createCustomTagsTable(txn);
       });
     }
+    if (oldVersion < 3) {
+      // v3: mobile-only video upload queue (TASK-032).
+      await _createUploadQueueTable(db);
+    }
+    if (oldVersion >= 2 && oldVersion < 4) {
+      // v4: downloaded analysis artifacts attach to the session (TASK-034).
+      // A v1 upgrader skips this — its rebuild above already created the
+      // sessions table at the current shape, columns included.
+      await db.execute(
+          'ALTER TABLE sessions ADD COLUMN analysisReportPath TEXT');
+      await db.execute(
+          'ALTER TABLE sessions ADD COLUMN analysisCourtMapPath TEXT');
+    }
+  }
+
+  static Future<void> _createUploadQueueTable(DatabaseExecutor db) async {
+    await db.execute('''
+      CREATE TABLE upload_queue (
+        id TEXT PRIMARY KEY,
+        sessionId TEXT NOT NULL,
+        playerId TEXT NOT NULL,
+        mode TEXT NOT NULL,
+        filePath TEXT NOT NULL,
+        totalBytes INTEGER NOT NULL,
+        sentBytes INTEGER NOT NULL DEFAULT 0,
+        status TEXT NOT NULL DEFAULT 'pending',
+        tusUrl TEXT,
+        error TEXT
+      )
+    ''');
   }
 
   static Future<void> _createCustomTagsTable(DatabaseExecutor db) async {
     await db.execute('CREATE TABLE custom_tags (name TEXT PRIMARY KEY)');
+  }
+
+  // ── Upload queue (mobile-only: web has no video pipeline, so these
+  // deliberately have no webApi mirror) ──────────────────────────────────
+
+  static Future<void> insertUploadTask(UploadTask task) async {
+    final db = await _database;
+    await db.insert('upload_queue', task.toMap());
+  }
+
+  static Future<List<UploadTask>> getUploadTasks() async {
+    final db = await _database;
+    final maps = await db.query('upload_queue');
+    return maps.map(UploadTask.fromMap).toList();
+  }
+
+  static Future<void> updateUploadTask(UploadTask task) async {
+    final db = await _database;
+    await db.update(
+      'upload_queue',
+      task.toMap(),
+      where: 'id = ?',
+      whereArgs: [task.id],
+    );
+  }
+
+  static Future<void> deleteUploadTask(String id) async {
+    final db = await _database;
+    await db.delete('upload_queue', where: 'id = ?', whereArgs: [id]);
   }
 
   // ── Test hooks ───────────────────────────────────────────────────────────

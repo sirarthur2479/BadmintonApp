@@ -9,10 +9,18 @@ services:
       - ./data:/data # SQLite at /data/badminton.db — back up this directory
     environment:
       - DB_PATH=/data/badminton.db
+      - UPLOAD_DIR=/data/uploads # video ingest lands on the backed-up volume
       - JWT_SECRET=${JWT_SECRET:?set JWT_SECRET in .env}
       - JWT_EXPIRE_DAYS=${JWT_EXPIRE_DAYS:-30}
     expose:
       - "8000"
+    # LAN-only video ingest: the phone uploads footage of a minor straight to
+    # http://<lan-ip>:8001 — this port is reachable on the home network only
+    # and is deliberately NOT fronted by nginx or the Cloudflare Tunnel
+    # (which only ever points at web:80). nginx additionally refuses to proxy
+    # /api/v1/uploads so the tunneled hostname can't reach ingest either.
+    ports:
+      - "8001:8000"
 
   web:
     image: nginx:alpine

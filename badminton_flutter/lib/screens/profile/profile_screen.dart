@@ -7,11 +7,15 @@ import '../../providers/player_provider.dart';
 import '../../providers/profile_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/profile_avatar.dart';
+import '../settings/analysis_server_screen.dart';
 import 'progress_screen.dart';
 import 'tournament_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  /// Overrides kIsWeb in tests; production leaves it null.
+  final bool? webOverride;
+
+  const ProfileScreen({super.key, this.webOverride});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -95,13 +99,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
       appBar: AppBar(
         title: const Text('Profile'),
         actions: [
-          if (kIsWeb)
+          if (widget.webOverride ?? kIsWeb)
             IconButton(
               key: const ValueKey('switchPlayerButton'),
               icon: const Icon(Icons.switch_account),
               tooltip: 'Switch player',
               onPressed: () =>
                   context.read<PlayerProvider>().clearActivePlayer(),
+            )
+          else
+            // Mobile-only: video analysis needs the LAN server connection.
+            IconButton(
+              key: const ValueKey('analysisServerButton'),
+              icon: const Icon(Icons.dns_outlined),
+              tooltip: 'Analysis server',
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const AnalysisServerScreen(),
+                ),
+              ),
             ),
           TextButton(
             onPressed: () {

@@ -7,12 +7,21 @@ from app.settings import Settings
 
 @pytest.fixture()
 def settings(tmp_path) -> Settings:
-    return Settings(db_path=str(tmp_path / "test.db"), jwt_secret="test-secret")
+    return Settings(
+        db_path=str(tmp_path / "test.db"),
+        jwt_secret="test-secret",
+        upload_dir=str(tmp_path / "uploads"),
+    )
 
 
 @pytest.fixture()
 def client(settings) -> TestClient:
-    return TestClient(create_app(settings))
+    # Context-managed so every request shares one event loop (as in
+    # production) — asyncio primitives in handlers deadlock across the
+    # per-request loops TestClient otherwise creates — and so lifespan
+    # startup/shutdown hooks run.
+    with TestClient(create_app(settings)) as c:
+        yield c
 
 
 def register_and_login(

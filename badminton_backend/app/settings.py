@@ -9,6 +9,7 @@ class Settings:
     db_path: str
     jwt_secret: str
     jwt_expire_days: int = 30
+    upload_dir: str = "data/uploads"
 
     @classmethod
     def from_env(cls, dev: bool = False) -> "Settings":
@@ -29,4 +30,5 @@ class Settings:
             db_path=os.environ.get("DB_PATH", "data/badminton.db"),
             jwt_secret=secret,
             jwt_expire_days=int(os.environ.get("JWT_EXPIRE_DAYS", "30")),
+            upload_dir=os.environ.get("UPLOAD_DIR", "data/uploads"),
         )

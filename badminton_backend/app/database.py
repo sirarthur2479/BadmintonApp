@@ -61,6 +61,34 @@ CREATE TABLE IF NOT EXISTS matches (
     isWin INTEGER NOT NULL,
     notes TEXT
 );
+CREATE TABLE IF NOT EXISTS uploads (
+    id TEXT PRIMARY KEY,
+    accountId TEXT NOT NULL REFERENCES accounts (id) ON DELETE CASCADE,
+    playerId TEXT NOT NULL REFERENCES players (id) ON DELETE CASCADE,
+    sessionId TEXT NOT NULL,
+    mode TEXT NOT NULL,
+    filename TEXT NOT NULL,
+    total_bytes INTEGER NOT NULL,
+    offset_bytes INTEGER NOT NULL DEFAULT 0,
+    storage_path TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'in_progress',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS jobs (
+    id TEXT PRIMARY KEY,
+    playerId TEXT NOT NULL REFERENCES players (id) ON DELETE CASCADE,
+    sessionId TEXT NOT NULL,
+    videoPath TEXT NOT NULL,
+    mode TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'queued',
+    reportPath TEXT,
+    courtMapPath TEXT,
+    errorMessage TEXT,
+    createdAt TEXT NOT NULL,
+    startedAt TEXT,
+    finishedAt TEXT
+);
 CREATE TABLE IF NOT EXISTS custom_tags (
     playerId TEXT NOT NULL REFERENCES players (id) ON DELETE CASCADE,
     name TEXT NOT NULL,

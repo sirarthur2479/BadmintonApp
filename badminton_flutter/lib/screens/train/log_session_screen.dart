@@ -233,7 +233,12 @@ class _LogSessionScreenState extends State<LogSessionScreen> {
               tooltip: 'Share as Markdown',
               onPressed: () => SharePlus.instance.share(
                 ShareParams(
-                  text: ExportService.sessionToMarkdown(widget.session!),
+                  text: ExportService.sessionToMarkdown(
+                    widget.session!,
+                    analysisReport: ExportService.loadAnalysisReports(
+                      [widget.session!],
+                    )[widget.session!.id],
+                  ),
                   subject: 'Training session',
                 ),
               ),

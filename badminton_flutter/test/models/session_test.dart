@@ -204,4 +204,56 @@ void main() {
       expect(copy.goalAchievementScore, base.goalAchievementScore);
     });
   });
+
+  group('analysis attachment (TASK-034)', () {
+    test('round-trips report and court map paths', () {
+      final session = TrainingSession(
+        id: 'session-a',
+        date: DateTime(2026, 7, 8),
+        durationMinutes: 60,
+        drills: const [],
+        analysisReportPath: 'analysis/session-a/report.md',
+        analysisCourtMapPath: 'analysis/session-a/court-map.png',
+      );
+
+      final restored = TrainingSession.fromMap(session.toMap());
+
+      expect(restored.analysisReportPath, 'analysis/session-a/report.md');
+      expect(restored.analysisCourtMapPath, 'analysis/session-a/court-map.png');
+    });
+
+    test('defaults to null and survives legacy maps without the keys', () {
+      final legacy = TrainingSession(
+        id: 'session-b',
+        date: DateTime(2026, 7, 8),
+        durationMinutes: 45,
+        drills: const ['Smash'],
+      ).toMap()
+        ..remove('analysisReportPath')
+        ..remove('analysisCourtMapPath');
+
+      final restored = TrainingSession.fromMap(legacy);
+
+      expect(restored.analysisReportPath, isNull);
+      expect(restored.analysisCourtMapPath, isNull);
+    });
+
+    test('copyWith sets the attachment paths', () {
+      final session = TrainingSession(
+        id: 'session-c',
+        date: DateTime(2026, 7, 8),
+        durationMinutes: 30,
+        drills: const [],
+      );
+
+      final updated = session.copyWith(
+        analysisReportPath: 'r.md',
+        analysisCourtMapPath: 'm.png',
+      );
+
+      expect(updated.analysisReportPath, 'r.md');
+      expect(updated.analysisCourtMapPath, 'm.png');
+      expect(updated.id, 'session-c');
+    });
+  });
 }

@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:intl/intl.dart';
 import '../models/reflection_data.dart';
 import '../models/session.dart';
@@ -10,7 +13,10 @@ class ExportService {
 
   static String _stars(int n) => '★' * n + '☆' * (5 - n);
 
-  static String sessionToMarkdown(TrainingSession s) {
+  static String sessionToMarkdown(
+    TrainingSession s, {
+    String? analysisReport,
+  }) {
     final b = StringBuffer()
       ..writeln('## Training Session — ${_dateFmt.format(s.date)}');
     if (s.sessionGoal.isNotEmpty) {
@@ -53,10 +59,33 @@ class ExportService {
     if (s.notes.isNotEmpty) {
       b.writeln('**Notes:** ${s.notes}');
     }
+    if (analysisReport != null && analysisReport.isNotEmpty) {
+      b
+        ..writeln()
+        ..writeln('### BadmintonTrack Coach Report')
+        ..writeln(analysisReport);
+    }
     b
       ..writeln()
       ..writeln('---');
     return b.toString();
+  }
+
+  /// Reads each session's downloaded coach report off disk, keyed by
+  /// session id. Mobile-only artifacts: on web (or when nothing is
+  /// attached) this is simply empty.
+  static Map<String, String> loadAnalysisReports(
+    List<TrainingSession> sessions,
+  ) {
+    if (kIsWeb) return const {};
+    final reports = <String, String>{};
+    for (final s in sessions) {
+      final path = s.analysisReportPath;
+      if (path == null) continue;
+      final file = File(path);
+      if (file.existsSync()) reports[s.id] = file.readAsStringSync();
+    }
+    return reports;
   }
 
   /// Combined Markdown for every session inside [from]..[to] (whole days,
@@ -65,6 +94,7 @@ class ExportService {
     required List<TrainingSession> sessions,
     required DateTime from,
     required DateTime to,
+    Map<String, String> analysisReports = const {}, // by session id
   }) {
     final fromDay = DateTime(from.year, from.month, from.day);
     final endExclusive = DateTime(
@@ -88,7 +118,7 @@ class ExportService {
       )
       ..writeln();
     for (final s in inRange) {
-      b.writeln(sessionToMarkdown(s));
+      b.writeln(sessionToMarkdown(s, analysisReport: analysisReports[s.id]));
     }
     return b.toString();
   }
