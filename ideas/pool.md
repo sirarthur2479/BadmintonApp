@@ -17,6 +17,7 @@ this order unless the owner overrides.
 | 6 | BadmintonTrack-12 in-app integration (WiFi upload → home server) | Depends on #4 (pipeline) and benefits from #5 (server + auth); the end-state UX |
 | 7 | Flutter app quality-of-life batch | Anytime filler; no dependencies, lower value per item |
 | 8 | Audio session logging (local STT for spoken notes) | Anytime filler; no dependencies, small/self-contained, reuses a proven external pattern |
+| 9 | Match-log feature (per-match reflection log) | Independent branch work recovered during a rebase onto main; needs rework to sit on top of the multi-player architecture (#5) before it can land |
 
 ---
 
@@ -132,3 +133,37 @@ this order unless the owner overrides.
   Transcribe on-device (phone) or record-then-transcribe on the owner's
   computer? Whole-utterance transcription (as in the reference) is simplest
   for MVP — no VAD/chunking needed unless notes run long.
+
+## 9. Match-log feature — per-match reflection log
+
+- **Added:** 2026-07-12
+- **Status:**
+- **Source:** built independently on `A2-remote-signin-improve-log-feature`
+  before that branch was rebased onto main; recovered from the stash diff
+  during the rebase and parked here rather than merged, since main had since
+  grown a conflicting multi-player architecture. The branch's own duplicate
+  backend (`badminton-server/`, a weaker fork of `badminton_backend` using the
+  CVE-flagged `python-jose`/`passlib` pair TASK-021 explicitly rejected) and
+  duplicate `auth_service.dart`/`api_service.dart` were discarded outright —
+  not part of this idea.
+- **Summary:** A standalone, richer per-match log distinct from the existing
+  `Tournament`-scoped `matches` (opponent/score/isWin). Model fields covered
+  pre-match gameplan/readiness, post-match move-by-move performance notes, and
+  video references — not tied to a `tournamentId`. UI was `train_screen.dart`,
+  a tab container meant to replace `session_history_screen.dart` in the Train
+  tab with two sub-tabs: Sessions (existing) and Match Logs (new). Supporting
+  pieces: `match_log.dart` model, `match_log_provider.dart`,
+  `log_match_screen.dart`, `match_log_card.dart` widget. Also bundled two
+  unrelated widgets built alongside it — `youtube_player_widget.dart` (inline
+  technique video playback) and `markdown_export_service.dart` (export a
+  match log to Markdown, mirroring #3's session export) — worth splitting out
+  since they don't depend on the match-log data model.
+- **Rework needed before landing:** the old branch had no `PlayerProvider`/
+  `PlayerSelectScreen` awareness (single-player mental model predating #5).
+  To integrate: scope `MatchLog` by player (same pattern as
+  `SessionProvider`/`TournamentProvider`), add a `match_logs` table +
+  `/players/{id}/match-logs` routes to `badminton_backend` mirroring the
+  sessions routes (TASK-023/026 pattern), add matching `ApiService` methods,
+  wire `MatchLogProvider` to construct via `ApiService` on web like
+  `SessionProvider` does, and merge `TrainScreen` into `MainShell` in place of
+  `SessionHistoryScreen` without breaking main's player-select routing.
