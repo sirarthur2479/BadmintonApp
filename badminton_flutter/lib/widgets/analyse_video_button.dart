@@ -1,18 +1,24 @@
 import 'dart:io';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/upload_queue_provider.dart';
 
+/// Where the video comes from: record with the camera right now, pick from
+/// the phone's photo library, or browse local files (Files app / storage).
+enum VideoSource { camera, gallery, files }
+
 /// "Analyse video" entry point for a training session (mobile only):
-/// choose the pipeline mode, pick a clip, queue the upload.
+/// choose the pipeline mode, choose the video source, queue the upload.
 class AnalyseVideoButton extends StatelessWidget {
   final String sessionId;
 
-  /// Test seams; production uses the gallery picker and real file size.
-  final Future<XFile?> Function()? videoPicker;
+  /// Test seams; production dispatches on [VideoSource] and reads the real
+  /// file size.
+  final Future<XFile?> Function(VideoSource source)? videoPicker;
   final Future<int> Function(String path)? fileLength;
 
   const AnalyseVideoButton({
@@ -22,18 +28,32 @@ class AnalyseVideoButton extends StatelessWidget {
     this.fileLength,
   });
 
-  Future<XFile?> _pickVideo() =>
-      videoPicker?.call() ??
-      ImagePicker().pickVideo(source: ImageSource.gallery);
+  Future<XFile?> _pickVideo(VideoSource source) async {
+    if (videoPicker != null) return videoPicker!(source);
+    switch (source) {
+      case VideoSource.camera:
+        return ImagePicker().pickVideo(source: ImageSource.camera);
+      case VideoSource.gallery:
+        return ImagePicker().pickVideo(source: ImageSource.gallery);
+      case VideoSource.files:
+        final result = await FilePicker.pickFiles(type: FileType.video);
+        final path = result?.files.single.path;
+        return path == null ? null : XFile(path);
+    }
+  }
 
   Future<int> _length(String path) =>
       fileLength?.call(path) ?? File(path).length();
 
-  Future<void> _enqueue(BuildContext context, String mode) async {
+  Future<void> _enqueue(
+    BuildContext context,
+    String mode,
+    VideoSource source,
+  ) async {
     final queue = context.read<UploadQueueProvider>();
     final messenger = ScaffoldMessenger.of(context);
-    final file = await _pickVideo();
-    if (file == null) return;
+    final file = await _pickVideo(source);
+    if (file == null) return; // picker/recording cancelled
     final error = await queue.enqueue(
       sessionId: sessionId,
       filePath: file.path,
@@ -43,6 +63,45 @@ class AnalyseVideoButton extends StatelessWidget {
     messenger.showSnackBar(SnackBar(
       content: Text(error ?? 'Video queued — uploads over WiFi'),
     ));
+  }
+
+  Future<void> _chooseSource(BuildContext context, String mode) async {
+    final source = await showModalBottomSheet<VideoSource>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text('Where is the video?'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.videocam_outlined),
+              title: const Text('Record video'),
+              subtitle: const Text('open the camera now'),
+              onTap: () =>
+                  Navigator.of(sheetContext).pop(VideoSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Photo library'),
+              subtitle: const Text('recorded earlier on this phone'),
+              onTap: () =>
+                  Navigator.of(sheetContext).pop(VideoSource.gallery),
+            ),
+            ListTile(
+              leading: const Icon(Icons.folder_outlined),
+              title: const Text('Choose a file'),
+              subtitle: const Text('Files app / local storage'),
+              onTap: () => Navigator.of(sheetContext).pop(VideoSource.files),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source == null || !context.mounted) return;
+    await _enqueue(context, mode, source);
   }
 
   @override
@@ -71,7 +130,7 @@ class AnalyseVideoButton extends StatelessWidget {
                   subtitle: Text(hint),
                   onTap: () {
                     Navigator.of(sheetContext).pop();
-                    _enqueue(context, mode);
+                    _chooseSource(context, mode);
                   },
                 ),
             ],

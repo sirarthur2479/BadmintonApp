@@ -66,5 +66,11 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>Record training videos for BadmintonTrack analysis.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Audio is captured while recording training videos.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Pick a recorded training video to analyse.</string>
 </dict>
 </plist>
