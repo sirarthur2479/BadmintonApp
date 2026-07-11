@@ -416,3 +416,6 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# Personal training notes (raw material for log/reflection features, not project content)
+/Notes/
