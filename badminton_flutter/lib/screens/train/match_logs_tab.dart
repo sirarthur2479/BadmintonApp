@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../providers/match_log_provider.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/confirm_delete.dart';
 import '../../widgets/match_log_card.dart';
 
 /// The Match Logs tab body: newest-first list with pull-to-refresh.
@@ -40,7 +41,19 @@ class MatchLogsTab extends StatelessWidget {
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.symmetric(vertical: 8),
             itemCount: logs.length,
-            itemBuilder: (context, index) => MatchLogCard(log: logs[index]),
+            itemBuilder: (context, index) {
+              final log = logs[index];
+              return MatchLogCard(
+                log: log,
+                onDelete: () async {
+                  final confirmed = await confirmDelete(
+                    context,
+                    title: 'Delete match log?',
+                  );
+                  if (confirmed) provider.deleteMatchLog(log.id);
+                },
+              );
+            },
           ),
         );
       },
