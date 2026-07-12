@@ -115,6 +115,34 @@ void main() {
     expect(find.text('Log Match'), findsOneWidget);
   });
 
+  testWidgets('delete flows through the confirm dialog', (tester) async {
+    final (_, matchLogs) = await pumpTrain(tester, logs: [log(id: 'doomed')]);
+
+    await tester.tap(find.widgetWithText(Tab, 'Match Logs'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.delete_outline));
+    await tester.pumpAndSettle();
+
+    // Cancel keeps the log.
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(matchLogs.matchLogs, hasLength(1));
+
+    // Confirm deletes it.
+    await tester.tap(find.byIcon(Icons.delete_outline));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete'));
+    await tester.runAsync(() async {
+      for (var i = 0; i < 500 && matchLogs.matchLogs.isNotEmpty; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+    });
+    await tester.pumpAndSettle();
+
+    expect(matchLogs.matchLogs, isEmpty);
+    expect(find.byType(MatchLogCard), findsNothing);
+  });
+
   testWidgets('Sessions tab still lists sessions', (tester) async {
     await pumpTrain(
       tester,
