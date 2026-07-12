@@ -1,0 +1,147 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:badminton_flutter/models/match_log.dart';
+
+void main() {
+  group('MatchLog map round-trip', () {
+    final full = MatchLog(
+      id: 'log-1',
+      date: DateTime(2026, 7, 12, 14, 30),
+      opponent: 'Ken T.',
+      eventContext: 'League round 3',
+      scores: '21-15, 18-21, 21-19',
+      isWin: true,
+      gameplan: 'Attack the backhand, keep rallies short',
+      readinessScore: 4,
+      performanceNotes: 'Smash landed; net play broke down in game 2',
+      keyMoments: 'Saved 2 game points at 18-20 in the decider',
+      videoRef: '/videos/league-r3.mp4',
+    );
+
+    test('toMap/fromMap round-trips a fully-populated log', () {
+      final restored = MatchLog.fromMap(full.toMap());
+
+      expect(restored.id, full.id);
+      expect(restored.date, full.date);
+      expect(restored.opponent, full.opponent);
+      expect(restored.eventContext, full.eventContext);
+      expect(restored.scores, full.scores);
+      expect(restored.isWin, full.isWin);
+      expect(restored.gameplan, full.gameplan);
+      expect(restored.readinessScore, full.readinessScore);
+      expect(restored.performanceNotes, full.performanceNotes);
+      expect(restored.keyMoments, full.keyMoments);
+      expect(restored.videoRef, full.videoRef);
+    });
+
+    test('toMap encodes isWin true as 1 and false as 0', () {
+      expect(full.toMap()['isWin'], 1);
+      final loss = MatchLog(
+        id: 'log-2',
+        date: DateTime(2026, 7, 12),
+        opponent: 'Mia W.',
+        isWin: false,
+      );
+      expect(loss.toMap()['isWin'], 0);
+    });
+
+    test(
+      'toMap encodes date as ISO-8601 string and fromMap parses it back',
+      () {
+        final map = full.toMap();
+        expect(map['date'], '2026-07-12T14:30:00.000');
+        expect(MatchLog.fromMap(map).date, DateTime(2026, 7, 12, 14, 30));
+      },
+    );
+  });
+
+  group('MatchLog defaults', () {
+    test('fromMap applies defaults for missing optional fields', () {
+      final log = MatchLog.fromMap({
+        'id': 'bare-1',
+        'date': '2026-07-12T00:00:00.000',
+        'opponent': 'Sam L.',
+        'isWin': 0,
+      });
+
+      expect(log.eventContext, '');
+      expect(log.scores, '');
+      expect(log.gameplan, '');
+      expect(log.readinessScore, 3);
+      expect(log.performanceNotes, '');
+      expect(log.keyMoments, '');
+      expect(log.videoRef, isNull);
+    });
+
+    test('fromMap accepts explicit null videoRef', () {
+      final log = MatchLog.fromMap({
+        'id': 'bare-2',
+        'date': '2026-07-12T00:00:00.000',
+        'opponent': 'Sam L.',
+        'isWin': 1,
+        'videoRef': null,
+      });
+
+      expect(log.videoRef, isNull);
+    });
+
+    test('constructor defaults mirror fromMap defaults', () {
+      final log = MatchLog(
+        id: 'bare-3',
+        date: DateTime(2026, 7, 12),
+        opponent: 'Sam L.',
+        isWin: false,
+      );
+
+      expect(log.eventContext, '');
+      expect(log.scores, '');
+      expect(log.gameplan, '');
+      expect(log.readinessScore, 3);
+      expect(log.performanceNotes, '');
+      expect(log.keyMoments, '');
+      expect(log.videoRef, isNull);
+    });
+  });
+
+  group('MatchLog copyWith', () {
+    final base = MatchLog(
+      id: 'log-1',
+      date: DateTime(2026, 7, 12),
+      opponent: 'Ken T.',
+      eventContext: 'Practice',
+      scores: '21-10, 21-12',
+      isWin: true,
+      gameplan: 'Serve variation',
+      readinessScore: 4,
+      performanceNotes: 'Solid',
+      keyMoments: 'None',
+      videoRef: '/videos/practice.mp4',
+    );
+
+    test('copyWith replaces only the given fields', () {
+      final edited = base.copyWith(
+        opponent: 'Mia W.',
+        isWin: false,
+        readinessScore: 2,
+      );
+
+      expect(edited.opponent, 'Mia W.');
+      expect(edited.isWin, false);
+      expect(edited.readinessScore, 2);
+      // Everything else is untouched.
+      expect(edited.id, base.id);
+      expect(edited.date, base.date);
+      expect(edited.eventContext, base.eventContext);
+      expect(edited.scores, base.scores);
+      expect(edited.gameplan, base.gameplan);
+      expect(edited.performanceNotes, base.performanceNotes);
+      expect(edited.keyMoments, base.keyMoments);
+      expect(edited.videoRef, base.videoRef);
+    });
+
+    test('copyWith with no arguments is an identical copy', () {
+      final copy = base.copyWith();
+
+      expect(copy.toMap(), base.toMap());
+    });
+  });
+}

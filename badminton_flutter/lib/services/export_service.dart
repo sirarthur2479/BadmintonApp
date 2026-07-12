@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:intl/intl.dart';
+import '../models/match_log.dart';
 import '../models/reflection_data.dart';
 import '../models/session.dart';
 
@@ -13,10 +14,7 @@ class ExportService {
 
   static String _stars(int n) => '★' * n + '☆' * (5 - n);
 
-  static String sessionToMarkdown(
-    TrainingSession s, {
-    String? analysisReport,
-  }) {
+  static String sessionToMarkdown(TrainingSession s, {String? analysisReport}) {
     final b = StringBuffer()
       ..writeln('## Training Session — ${_dateFmt.format(s.date)}');
     if (s.sessionGoal.isNotEmpty) {
@@ -68,6 +66,54 @@ class ExportService {
     b
       ..writeln()
       ..writeln('---');
+    return b.toString();
+  }
+
+  static String matchLogToMarkdown(MatchLog log) {
+    final result = log.isWin ? 'Win' : 'Loss';
+    final b = StringBuffer()
+      ..writeln('## Match — ${_dateFmt.format(log.date)} vs ${log.opponent}')
+      ..writeln(
+        log.scores.isEmpty
+            ? '**Result:** $result'
+            : '**Result:** $result (${log.scores})',
+      );
+    if (log.eventContext.isNotEmpty) {
+      b.writeln('**Event:** ${log.eventContext}');
+    }
+    b
+      ..writeln('**Readiness:** ${_stars(log.readinessScore)}')
+      ..writeln();
+    if (log.gameplan.isNotEmpty) {
+      b.writeln('**Gameplan:** ${log.gameplan}');
+    }
+    if (log.performanceNotes.isNotEmpty) {
+      b.writeln('**Performance:** ${log.performanceNotes}');
+    }
+    if (log.keyMoments.isNotEmpty) {
+      b.writeln('**Key Moments:** ${log.keyMoments}');
+    }
+    final videoRef = log.videoRef;
+    if (videoRef != null && videoRef.isNotEmpty) {
+      b.writeln('**Video:** $videoRef');
+    }
+    b
+      ..writeln()
+      ..writeln('---');
+    return b.toString();
+  }
+
+  /// Combined Markdown for [logs], newest first (the order the Match Logs
+  /// tab shows them in).
+  static String bulkExportMatchLogs({required List<MatchLog> logs}) {
+    final ordered = [...logs]..sort((a, b) => b.date.compareTo(a.date));
+    final b = StringBuffer()
+      ..writeln('# Match Log Export')
+      ..writeln('${ordered.length} match logs')
+      ..writeln();
+    for (final log in ordered) {
+      b.writeln(matchLogToMarkdown(log));
+    }
     return b.toString();
   }
 

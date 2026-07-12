@@ -10,6 +10,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'package:badminton_flutter/app.dart';
 import 'package:badminton_flutter/providers/auth_provider.dart';
+import 'package:badminton_flutter/providers/match_log_provider.dart';
 import 'package:badminton_flutter/providers/profile_provider.dart';
 import 'package:badminton_flutter/providers/session_provider.dart';
 import 'package:badminton_flutter/providers/tournament_provider.dart';
@@ -110,6 +111,7 @@ void main() {
             ChangeNotifierProvider(create: (_) => SessionProvider()),
             ChangeNotifierProvider(create: (_) => TournamentProvider()),
             ChangeNotifierProvider(create: (_) => ProfileProvider()),
+            ChangeNotifierProvider(create: (_) => MatchLogProvider()),
           ],
           child: MaterialApp(home: AuthGate(webOverride: web)),
         );

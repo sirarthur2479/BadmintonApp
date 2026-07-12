@@ -137,7 +137,7 @@ this order unless the owner overrides.
 ## 9. Match-log feature — per-match reflection log
 
 - **Added:** 2026-07-12
-- **Status:**
+- **Status:** done (TASK-035 → TASK-041, 2026-07-12; use-case: `ideas/use-cases/match-log.md`)
 - **Source:** built independently on `A2-remote-signin-improve-log-feature`
   before that branch was rebased onto main; recovered from the stash diff
   during the rebase and parked here rather than merged, since main had since

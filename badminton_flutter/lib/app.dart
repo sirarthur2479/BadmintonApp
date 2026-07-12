@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'theme/app_theme.dart';
 import 'providers/auth_provider.dart';
+import 'providers/match_log_provider.dart';
 import 'providers/session_provider.dart';
 import 'providers/tournament_provider.dart';
 import 'providers/profile_provider.dart';
@@ -10,7 +11,7 @@ import 'providers/player_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/player/player_select_screen.dart';
 import 'screens/home/home_screen.dart';
-import 'screens/train/session_history_screen.dart';
+import 'screens/train/train_screen.dart';
 import 'screens/learn/technique_list_screen.dart';
 import 'screens/profile/profile_screen.dart';
 
@@ -84,7 +85,7 @@ class _MainShellState extends State<MainShell> {
 
   static const _tabs = [
     HomeScreen(),
-    SessionHistoryScreen(),
+    TrainScreen(),
     TechniqueListScreen(),
     ProfileScreen(),
   ];
@@ -97,6 +98,7 @@ class _MainShellState extends State<MainShell> {
       context.read<SessionProvider>().loadSessions();
       context.read<TournamentProvider>().loadTournaments();
       context.read<ProfileProvider>().loadProfile();
+      context.read<MatchLogProvider>().loadMatchLogs();
     });
   }
 

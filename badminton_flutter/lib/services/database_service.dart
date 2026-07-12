@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
+import '../models/match_log.dart';
 import '../models/session.dart';
 import '../models/tournament.dart';
 import '../models/upload_task.dart';
@@ -32,7 +33,7 @@ class DatabaseService {
 
     return openDatabase(
       path,
-      version: 4,
+      version: 5,
       // sqflite leaves foreign keys OFF by default; without this the
       // matches-table ON DELETE CASCADE is inert.
       onConfigure: (db) => db.execute('PRAGMA foreign_keys = ON'),
@@ -41,6 +42,7 @@ class DatabaseService {
         await _createSessionsTable(db);
         await _createCustomTagsTable(db);
         await _createUploadQueueTable(db);
+        await _createMatchLogsTable(db);
         await db.execute('''
           CREATE TABLE tournaments (
             id TEXT PRIMARY KEY,
@@ -124,9 +126,15 @@ class DatabaseService {
       // A v1 upgrader skips this — its rebuild above already created the
       // sessions table at the current shape, columns included.
       await db.execute(
-          'ALTER TABLE sessions ADD COLUMN analysisReportPath TEXT');
+        'ALTER TABLE sessions ADD COLUMN analysisReportPath TEXT',
+      );
       await db.execute(
-          'ALTER TABLE sessions ADD COLUMN analysisCourtMapPath TEXT');
+        'ALTER TABLE sessions ADD COLUMN analysisCourtMapPath TEXT',
+      );
+    }
+    if (oldVersion < 5) {
+      // v5: standalone per-match reflection logs (TASK-037).
+      await _createMatchLogsTable(db);
     }
   }
 
@@ -149,6 +157,27 @@ class DatabaseService {
 
   static Future<void> _createCustomTagsTable(DatabaseExecutor db) async {
     await db.execute('CREATE TABLE custom_tags (name TEXT PRIMARY KEY)');
+  }
+
+  /// Schema v5: standalone per-match reflection logs (TASK-037). Like
+  /// sessions, no playerId column — mobile is single-player offline; the
+  /// backend scopes by player via the route path.
+  static Future<void> _createMatchLogsTable(DatabaseExecutor db) async {
+    await db.execute('''
+      CREATE TABLE match_logs (
+        id TEXT PRIMARY KEY,
+        date TEXT NOT NULL,
+        opponent TEXT NOT NULL,
+        eventContext TEXT NOT NULL DEFAULT '',
+        scores TEXT NOT NULL DEFAULT '',
+        isWin INTEGER NOT NULL,
+        gameplan TEXT NOT NULL DEFAULT '',
+        readinessScore INTEGER NOT NULL DEFAULT 3,
+        performanceNotes TEXT NOT NULL DEFAULT '',
+        keyMoments TEXT NOT NULL DEFAULT '',
+        videoRef TEXT
+      )
+    ''');
   }
 
   // ── Upload queue (mobile-only: web has no video pipeline, so these
@@ -336,5 +365,64 @@ class DatabaseService {
     if (kIsWeb) return webApi!.deleteMatch(id);
     final db = await _database;
     await db.delete('matches', where: 'id = ?', whereArgs: [id]);
+  }
+
+  // ── Match logs ───────────────────────────────────────────────────────────
+
+  static Future<List<MatchLog>> getMatchLogs() async {
+    if (kIsWeb) return webApi!.getMatchLogs();
+    final db = await _database;
+    final maps = await db.query('match_logs', orderBy: 'date DESC');
+    return maps.map(MatchLog.fromMap).toList();
+  }
+
+  static Future<void> insertMatchLog(MatchLog log) async {
+    if (kIsWeb) return webApi!.insertMatchLog(log);
+    final db = await _database;
+    await db.insert(
+      'match_logs',
+      log.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  static Future<void> insertMatchLogs(List<MatchLog> logs) async {
+    if (kIsWeb) return webApi!.insertMatchLogs(logs);
+    final db = await _database;
+    final batch = db.batch();
+    for (final log in logs) {
+      batch.insert(
+        'match_logs',
+        log.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+    }
+    await batch.commit(noResult: true);
+  }
+
+  static Future<void> updateMatchLog(MatchLog log) async {
+    if (kIsWeb) return webApi!.updateMatchLog(log);
+    final db = await _database;
+    await db.update(
+      'match_logs',
+      log.toMap(),
+      where: 'id = ?',
+      whereArgs: [log.id],
+    );
+  }
+
+  static Future<void> deleteMatchLog(String id) async {
+    if (kIsWeb) return webApi!.deleteMatchLog(id);
+    final db = await _database;
+    await db.delete('match_logs', where: 'id = ?', whereArgs: [id]);
+  }
+
+  static Future<bool> hasAnyMatchLogs() async {
+    if (kIsWeb) return webApi!.hasAnyMatchLogs();
+    final db = await _database;
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM match_logs',
+    );
+    return (result.first['count'] as int) > 0;
   }
 }

@@ -40,6 +40,25 @@ class Session(BaseModel):
     reflectionAnswersJson: str = "[]"
 
 
+class MatchLog(BaseModel):
+    """Mirrors Flutter MatchLog.toMap() (TASK-035): standalone per-match
+    reflection log, not tied to a tournamentId. isWin is a 0/1 int, date an
+    ISO-8601 string, videoRef nullable — stored opaquely, never re-encoded.
+    """
+
+    id: str = Field(min_length=1)
+    date: str = Field(min_length=1)
+    opponent: str = Field(min_length=1)
+    eventContext: str = ""
+    scores: str = ""
+    isWin: int = Field(ge=0, le=1)
+    gameplan: str = ""
+    readinessScore: int = Field(default=3, ge=1, le=5)
+    performanceNotes: str = ""
+    keyMoments: str = ""
+    videoRef: str | None = None
+
+
 class Match(BaseModel):
     """Mirrors Flutter TournamentMatch.toMap(): pipe scores, isWin 0/1."""
 

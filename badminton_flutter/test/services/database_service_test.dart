@@ -3,6 +3,7 @@ import 'package:http/testing.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:uuid/uuid.dart';
 
+import 'package:badminton_flutter/models/match_log.dart';
 import 'package:badminton_flutter/models/session.dart';
 import 'package:badminton_flutter/models/tournament.dart';
 import 'package:badminton_flutter/services/api_client.dart';
@@ -12,16 +13,16 @@ import 'package:badminton_flutter/services/database_service.dart';
 /// Explodes on any HTTP call — proves non-web code never reaches the api.
 class _ThrowingApiService extends ApiService {
   _ThrowingApiService()
-      : super(
-          client: ApiClient(
-            baseUrl: 'http://never.call',
-            inner: MockClient(
-              (request) async =>
-                  throw StateError('web api called on non-web: ${request.url}'),
-            ),
+    : super(
+        client: ApiClient(
+          baseUrl: 'http://never.call',
+          inner: MockClient(
+            (request) async =>
+                throw StateError('web api called on non-web: ${request.url}'),
           ),
-          activePlayerId: () => throw StateError('web api used on non-web'),
-        );
+        ),
+        activePlayerId: () => throw StateError('web api used on non-web'),
+      );
 }
 
 void main() {
@@ -206,5 +207,81 @@ void main() {
     expect(loaded.first.id, session.id);
     expect(loaded.first.drills, session.drills);
     expect(loaded.first.intensity, 4);
+  });
+
+  group('match logs', () {
+    MatchLog log({String? id, DateTime? date}) => MatchLog(
+      id: id ?? const Uuid().v4(),
+      date: date ?? DateTime(2026, 7, 12, 14, 30),
+      opponent: 'Ken T.',
+      eventContext: 'League round 3',
+      scores: '21-15, 18-21, 21-19',
+      isWin: true,
+      gameplan: 'Attack the backhand',
+      readinessScore: 4,
+      performanceNotes: 'Net play broke down in game 2',
+      keyMoments: 'Saved 2 game points',
+      videoRef: '/videos/league-r3.mp4',
+    );
+
+    test('insert and read back a match log round-trips all fields', () async {
+      final original = log();
+      await DatabaseService.insertMatchLog(original);
+
+      final loaded = await DatabaseService.getMatchLogs();
+      expect(loaded, hasLength(1));
+      expect(loaded.first.toMap(), original.toMap());
+    });
+
+    test('getMatchLogs returns newest first', () async {
+      await DatabaseService.insertMatchLog(
+        log(id: 'old', date: DateTime(2026, 7, 1)),
+      );
+      await DatabaseService.insertMatchLog(
+        log(id: 'new', date: DateTime(2026, 7, 10)),
+      );
+
+      final ids = (await DatabaseService.getMatchLogs()).map((l) => l.id);
+      expect(ids, ['new', 'old']);
+    });
+
+    test(
+      'updateMatchLog replaces fields and leaves others untouched',
+      () async {
+        final a = log(id: 'a');
+        final b = log(id: 'b', date: DateTime(2026, 7, 1));
+        await DatabaseService.insertMatchLog(a);
+        await DatabaseService.insertMatchLog(b);
+
+        await DatabaseService.updateMatchLog(
+          a.copyWith(opponent: 'Mia W.', isWin: false),
+        );
+
+        final loaded = await DatabaseService.getMatchLogs();
+        expect(loaded.first.opponent, 'Mia W.');
+        expect(loaded.first.isWin, false);
+        expect(loaded.last.toMap(), b.toMap());
+      },
+    );
+
+    test('deleteMatchLog removes the row', () async {
+      final l = log();
+      await DatabaseService.insertMatchLog(l);
+      await DatabaseService.deleteMatchLog(l.id);
+
+      expect(await DatabaseService.getMatchLogs(), isEmpty);
+    });
+
+    test('hasAnyMatchLogs flips once a log exists', () async {
+      expect(await DatabaseService.hasAnyMatchLogs(), isFalse);
+      await DatabaseService.insertMatchLog(log());
+      expect(await DatabaseService.hasAnyMatchLogs(), isTrue);
+    });
+
+    test('insertMatchLogs batch round-trips', () async {
+      await DatabaseService.insertMatchLogs([log(id: 'b1'), log(id: 'b2')]);
+
+      expect(await DatabaseService.getMatchLogs(), hasLength(2));
+    });
   });
 }

@@ -16,6 +16,7 @@ from .jobs import (
 from .models import AccountOut
 from .routers import auth as auth_router
 from .routers import jobs as jobs_router
+from .routers import match_logs as match_logs_router
 from .routers import players as players_router
 from .routers import sessions as sessions_router
 from .routers import tags as tags_router
@@ -51,6 +52,7 @@ def create_app(
     app.include_router(auth_router.router, prefix="/api/v1")
     app.include_router(players_router.router, prefix="/api/v1")
     app.include_router(sessions_router.router, prefix="/api/v1")
+    app.include_router(match_logs_router.router, prefix="/api/v1")
     app.include_router(tournaments_router.router, prefix="/api/v1")
     app.include_router(tags_router.router, prefix="/api/v1")
     app.include_router(uploads_router.router, prefix="/api/v1")

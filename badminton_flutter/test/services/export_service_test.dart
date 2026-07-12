@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:badminton_flutter/models/match_log.dart';
 import 'package:badminton_flutter/models/reflection_data.dart';
 import 'package:badminton_flutter/models/session.dart';
 import 'package:badminton_flutter/services/export_service.dart';
@@ -150,6 +151,108 @@ void main() {
 
       expect(md, contains('0 training sessions'));
       expect(md, isNot(contains('## Training Session')));
+    });
+  });
+
+  group('matchLogToMarkdown', () {
+    final fullLog = MatchLog(
+      id: 'ml-1',
+      date: DateTime(2026, 7, 12),
+      opponent: 'Ken T.',
+      eventContext: 'League round 3',
+      scores: '21-15, 18-21, 21-19',
+      isWin: true,
+      gameplan: 'Attack the backhand',
+      readinessScore: 4,
+      performanceNotes: 'Smash landed; net play broke down',
+      keyMoments: 'Saved 2 game points',
+      videoRef: '/videos/league-r3.mp4',
+    );
+
+    test('renders header, result line with W and scores', () {
+      final md = ExportService.matchLogToMarkdown(fullLog);
+
+      expect(md, contains('## Match — Sun, 12 Jul 2026 vs Ken T.'));
+      expect(md, contains('**Result:** Win (21-15, 18-21, 21-19)'));
+      expect(md, contains('**Event:** League round 3'));
+    });
+
+    test('loss renders as Loss', () {
+      final md = ExportService.matchLogToMarkdown(
+        fullLog.copyWith(isWin: false),
+      );
+
+      expect(md, contains('**Result:** Loss (21-15, 18-21, 21-19)'));
+    });
+
+    test('renders readiness as five-slot stars', () {
+      final md = ExportService.matchLogToMarkdown(fullLog);
+
+      expect(md, contains('**Readiness:** ★★★★☆'));
+    });
+
+    test('renders gameplan, notes, key moments, and video reference', () {
+      final md = ExportService.matchLogToMarkdown(fullLog);
+
+      expect(md, contains('**Gameplan:** Attack the backhand'));
+      expect(
+        md,
+        contains('**Performance:** Smash landed; net play broke down'),
+      );
+      expect(md, contains('**Key Moments:** Saved 2 game points'));
+      expect(md, contains('**Video:** /videos/league-r3.mp4'));
+    });
+
+    test('omits empty optional sections instead of blank headings', () {
+      final bare = MatchLog(
+        id: 'ml-2',
+        date: DateTime(2026, 7, 12),
+        opponent: 'Mia W.',
+        isWin: false,
+      );
+
+      final md = ExportService.matchLogToMarkdown(bare);
+
+      expect(md, contains('**Result:** Loss'));
+      expect(md, isNot(contains('**Event:**')));
+      expect(md, isNot(contains('**Gameplan:**')));
+      expect(md, isNot(contains('**Performance:**')));
+      expect(md, isNot(contains('**Key Moments:**')));
+      expect(md, isNot(contains('**Video:**')));
+      expect(md, isNot(contains('()')), reason: 'no empty scores parens');
+    });
+  });
+
+  group('bulkExportMatchLogs', () {
+    test('lists logs newest first under one header', () {
+      final older = MatchLog(
+        id: 'old',
+        date: DateTime(2026, 7, 1),
+        opponent: 'Older Opponent',
+        isWin: true,
+      );
+      final newer = MatchLog(
+        id: 'new',
+        date: DateTime(2026, 7, 10),
+        opponent: 'Newer Opponent',
+        isWin: false,
+      );
+
+      final md = ExportService.bulkExportMatchLogs(logs: [older, newer]);
+
+      expect(md, contains('# Match Log Export'));
+      expect(md, contains('2 match logs'));
+      final newerIdx = md.indexOf('Newer Opponent');
+      final olderIdx = md.indexOf('Older Opponent');
+      expect(newerIdx, greaterThanOrEqualTo(0));
+      expect(newerIdx, lessThan(olderIdx), reason: 'newest first');
+    });
+
+    test('empty list still produces the header', () {
+      final md = ExportService.bulkExportMatchLogs(logs: const []);
+
+      expect(md, contains('# Match Log Export'));
+      expect(md, contains('0 match logs'));
     });
   });
 }
