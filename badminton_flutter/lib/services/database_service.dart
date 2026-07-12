@@ -126,9 +126,11 @@ class DatabaseService {
       // A v1 upgrader skips this — its rebuild above already created the
       // sessions table at the current shape, columns included.
       await db.execute(
-          'ALTER TABLE sessions ADD COLUMN analysisReportPath TEXT');
+        'ALTER TABLE sessions ADD COLUMN analysisReportPath TEXT',
+      );
       await db.execute(
-          'ALTER TABLE sessions ADD COLUMN analysisCourtMapPath TEXT');
+        'ALTER TABLE sessions ADD COLUMN analysisCourtMapPath TEXT',
+      );
     }
     if (oldVersion < 5) {
       // v5: standalone per-match reflection logs (TASK-037).
@@ -418,8 +420,9 @@ class DatabaseService {
   static Future<bool> hasAnyMatchLogs() async {
     if (kIsWeb) return webApi!.hasAnyMatchLogs();
     final db = await _database;
-    final result =
-        await db.rawQuery('SELECT COUNT(*) as count FROM match_logs');
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM match_logs',
+    );
     return (result.first['count'] as int) > 0;
   }
 }

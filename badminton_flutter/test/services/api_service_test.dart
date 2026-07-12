@@ -52,10 +52,8 @@ class FakeBackend {
   final matchLogs = <Map<String, dynamic>>[];
   final requests = <String>[];
 
-  ApiClient client() => ApiClient(
-        baseUrl: 'http://api.test/api/v1',
-        inner: MockClient(_handle),
-      );
+  ApiClient client() =>
+      ApiClient(baseUrl: 'http://api.test/api/v1', inner: MockClient(_handle));
 
   Future<http.Response> _handle(http.Request request) async {
     final path = request.url.path.replaceFirst('/api/v1', '');
@@ -119,9 +117,7 @@ class FakeBackend {
     if (path.contains('/tournaments/') && path.endsWith('/matches')) {
       final tid = path.split('/')[4];
       final body = jsonDecode(request.body) as Map<String, dynamic>;
-      tournaments
-          .firstWhere((t) => t['id'] == tid)['matches']
-          .add(body);
+      tournaments.firstWhere((t) => t['id'] == tid)['matches'].add(body);
       return http.Response(request.body, 201);
     }
     if (path.contains('/matches/') && request.method == 'DELETE') {
@@ -156,23 +152,27 @@ ApiService service(FakeBackend backend, {String playerId = 'p1'}) =>
     ApiService(client: backend.client(), activePlayerId: () => playerId);
 
 void main() {
-  test('session with json-array drills and reflection round-trips the wire',
-      () async {
-    final backend = FakeBackend();
-    final api = service(backend);
+  test(
+    'session with json-array drills and reflection round-trips the wire',
+    () async {
+      final backend = FakeBackend();
+      final api = service(backend);
 
-    await api.insertSession(_session);
-    final loaded = await api.getSessions();
+      await api.insertSession(_session);
+      final loaded = await api.getSessions();
 
-    expect(loaded, hasLength(1));
-    final restored = loaded.single;
-    expect(restored.drills, ['Multi-feed, front court', 'Net Play']);
-    expect(restored.intensity, isNull);
-    expect(restored.sessionGoal, 'Sharper net kills');
-    expect(restored.reflectionAnswersJson, _session.reflectionAnswersJson);
-    expect(backend.sessions.single['drills'],
-        '["Multi-feed, front court","Net Play"]');
-  });
+      expect(loaded, hasLength(1));
+      final restored = loaded.single;
+      expect(restored.drills, ['Multi-feed, front court', 'Net Play']);
+      expect(restored.intensity, isNull);
+      expect(restored.sessionGoal, 'Sharper net kills');
+      expect(restored.reflectionAnswersJson, _session.reflectionAnswersJson);
+      expect(
+        backend.sessions.single['drills'],
+        '["Multi-feed, front court","Net Play"]',
+      );
+    },
+  );
 
   test('all calls scope urls to the active player id', () async {
     final backend = FakeBackend();
@@ -189,19 +189,20 @@ void main() {
     );
   });
 
-  test('updateSession PUTs to the session id and deleteSession removes',
-      () async {
-    final backend = FakeBackend();
-    final api = service(backend);
-    await api.insertSession(_session);
+  test(
+    'updateSession PUTs to the session id and deleteSession removes',
+    () async {
+      final backend = FakeBackend();
+      final api = service(backend);
+      await api.insertSession(_session);
 
-    await api.updateSession(
-        _session.copyWith(sessionGoal: 'Edited goal'));
-    expect(backend.sessions.single['sessionGoal'], 'Edited goal');
+      await api.updateSession(_session.copyWith(sessionGoal: 'Edited goal'));
+      expect(backend.sessions.single['sessionGoal'], 'Edited goal');
 
-    await api.deleteSession(_session.id);
-    expect(backend.sessions, isEmpty);
-  });
+      await api.deleteSession(_session.id);
+      expect(backend.sessions, isEmpty);
+    },
+  );
 
   test('insertSessions batches and hasAnySessions reads the flag', () async {
     final backend = FakeBackend();
@@ -224,8 +225,10 @@ void main() {
     expect(loaded.single.name, 'Regional U13');
     expect(loaded.single.matches.single.scores, ['21-15', '21-18']);
     expect(loaded.single.matches.single.isWin, isTrue);
-    expect(backend.tournaments.single['matches'].single['scores'],
-        '21-15|21-18');
+    expect(
+      backend.tournaments.single['matches'].single['scores'],
+      '21-15|21-18',
+    );
 
     await api.deleteMatch(_match.id);
     expect((await api.getTournaments()).single.matches, isEmpty);
@@ -284,8 +287,11 @@ void main() {
       final loaded = await api.getMatchLogs();
 
       expect(loaded.single.toMap(), log.toMap());
-      expect(backend.matchLogs.single['isWin'], 1,
-          reason: 'isWin crosses the wire as a 0/1 int');
+      expect(
+        backend.matchLogs.single['isWin'],
+        1,
+        reason: 'isWin crosses the wire as a 0/1 int',
+      );
     });
 
     test('match-log urls scope to the active player', () async {
@@ -302,31 +308,35 @@ void main() {
       );
     });
 
-    test('updateMatchLog PUTs to the log id and deleteMatchLog removes',
-        () async {
-      final backend = FakeBackend();
-      final api = service(backend);
-      await api.insertMatchLog(log);
+    test(
+      'updateMatchLog PUTs to the log id and deleteMatchLog removes',
+      () async {
+        final backend = FakeBackend();
+        final api = service(backend);
+        await api.insertMatchLog(log);
 
-      await api.updateMatchLog(log.copyWith(opponent: 'Mia W.'));
-      expect(backend.matchLogs.single['opponent'], 'Mia W.');
-      expect(backend.requests.last, 'PUT /players/p1/match-logs/ml1');
+        await api.updateMatchLog(log.copyWith(opponent: 'Mia W.'));
+        expect(backend.matchLogs.single['opponent'], 'Mia W.');
+        expect(backend.requests.last, 'PUT /players/p1/match-logs/ml1');
 
-      await api.deleteMatchLog(log.id);
-      expect(backend.matchLogs, isEmpty);
-    });
+        await api.deleteMatchLog(log.id);
+        expect(backend.matchLogs, isEmpty);
+      },
+    );
 
-    test('insertMatchLogs batches and hasAnyMatchLogs reflects state',
-        () async {
-      final backend = FakeBackend();
-      final api = service(backend);
+    test(
+      'insertMatchLogs batches and hasAnyMatchLogs reflects state',
+      () async {
+        final backend = FakeBackend();
+        final api = service(backend);
 
-      expect(await api.hasAnyMatchLogs(), isFalse);
-      await api.insertMatchLogs([log, log.copyWith(id: 'ml2')]);
+        expect(await api.hasAnyMatchLogs(), isFalse);
+        await api.insertMatchLogs([log, log.copyWith(id: 'ml2')]);
 
-      expect(backend.matchLogs, hasLength(2));
-      expect(backend.requests, contains('POST /players/p1/match-logs/batch'));
-      expect(await api.hasAnyMatchLogs(), isTrue);
-    });
+        expect(backend.matchLogs, hasLength(2));
+        expect(backend.requests, contains('POST /players/p1/match-logs/batch'));
+        expect(await api.hasAnyMatchLogs(), isTrue);
+      },
+    );
   });
 }

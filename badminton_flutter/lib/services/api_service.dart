@@ -12,7 +12,7 @@ class ApiService {
   final String Function() activePlayerId;
 
   ApiService({required ApiClient client, required this.activePlayerId})
-      : _client = client;
+    : _client = client;
 
   String get _base => '/players/${activePlayerId()}';
 
@@ -29,11 +29,8 @@ class ApiService {
   Future<void> insertSession(TrainingSession session) =>
       _client.postJson('$_base/sessions', session.toMap());
 
-  Future<void> insertSessions(List<TrainingSession> sessions) =>
-      _client.postJson(
-        '$_base/sessions/batch',
-        [for (final s in sessions) s.toMap()],
-      );
+  Future<void> insertSessions(List<TrainingSession> sessions) => _client
+      .postJson('$_base/sessions/batch', [for (final s in sessions) s.toMap()]);
 
   Future<void> updateSession(TrainingSession session) =>
       _client.putJson('$_base/sessions/${session.id}', session.toMap());
@@ -59,9 +56,9 @@ class ApiService {
       _client.postJson('$_base/match-logs', log.toMap());
 
   Future<void> insertMatchLogs(List<MatchLog> logs) => _client.postJson(
-        '$_base/match-logs/batch',
-        [for (final log in logs) log.toMap()],
-      );
+    '$_base/match-logs/batch',
+    [for (final log in logs) log.toMap()],
+  );
 
   Future<void> updateMatchLog(MatchLog log) =>
       _client.putJson('$_base/match-logs/${log.id}', log.toMap());
@@ -97,9 +94,9 @@ class ApiService {
       _client.delete('$_base/tournaments/$id');
 
   Future<void> insertMatch(TournamentMatch match) => _client.postJson(
-        '$_base/tournaments/${match.tournamentId}/matches',
-        match.toMap(),
-      );
+    '$_base/tournaments/${match.tournamentId}/matches',
+    match.toMap(),
+  );
 
   Future<void> deleteMatch(String id) async {
     // DatabaseService's surface only carries the match id; resolve its

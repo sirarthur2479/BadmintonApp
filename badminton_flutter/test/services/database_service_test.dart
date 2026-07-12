@@ -13,16 +13,16 @@ import 'package:badminton_flutter/services/database_service.dart';
 /// Explodes on any HTTP call — proves non-web code never reaches the api.
 class _ThrowingApiService extends ApiService {
   _ThrowingApiService()
-      : super(
-          client: ApiClient(
-            baseUrl: 'http://never.call',
-            inner: MockClient(
-              (request) async =>
-                  throw StateError('web api called on non-web: ${request.url}'),
-            ),
+    : super(
+        client: ApiClient(
+          baseUrl: 'http://never.call',
+          inner: MockClient(
+            (request) async =>
+                throw StateError('web api called on non-web: ${request.url}'),
           ),
-          activePlayerId: () => throw StateError('web api used on non-web'),
-        );
+        ),
+        activePlayerId: () => throw StateError('web api used on non-web'),
+      );
 }
 
 void main() {
@@ -211,18 +211,18 @@ void main() {
 
   group('match logs', () {
     MatchLog log({String? id, DateTime? date}) => MatchLog(
-          id: id ?? const Uuid().v4(),
-          date: date ?? DateTime(2026, 7, 12, 14, 30),
-          opponent: 'Ken T.',
-          eventContext: 'League round 3',
-          scores: '21-15, 18-21, 21-19',
-          isWin: true,
-          gameplan: 'Attack the backhand',
-          readinessScore: 4,
-          performanceNotes: 'Net play broke down in game 2',
-          keyMoments: 'Saved 2 game points',
-          videoRef: '/videos/league-r3.mp4',
-        );
+      id: id ?? const Uuid().v4(),
+      date: date ?? DateTime(2026, 7, 12, 14, 30),
+      opponent: 'Ken T.',
+      eventContext: 'League round 3',
+      scores: '21-15, 18-21, 21-19',
+      isWin: true,
+      gameplan: 'Attack the backhand',
+      readinessScore: 4,
+      performanceNotes: 'Net play broke down in game 2',
+      keyMoments: 'Saved 2 game points',
+      videoRef: '/videos/league-r3.mp4',
+    );
 
     test('insert and read back a match log round-trips all fields', () async {
       final original = log();
@@ -245,22 +245,24 @@ void main() {
       expect(ids, ['new', 'old']);
     });
 
-    test('updateMatchLog replaces fields and leaves others untouched',
-        () async {
-      final a = log(id: 'a');
-      final b = log(id: 'b', date: DateTime(2026, 7, 1));
-      await DatabaseService.insertMatchLog(a);
-      await DatabaseService.insertMatchLog(b);
+    test(
+      'updateMatchLog replaces fields and leaves others untouched',
+      () async {
+        final a = log(id: 'a');
+        final b = log(id: 'b', date: DateTime(2026, 7, 1));
+        await DatabaseService.insertMatchLog(a);
+        await DatabaseService.insertMatchLog(b);
 
-      await DatabaseService.updateMatchLog(
-        a.copyWith(opponent: 'Mia W.', isWin: false),
-      );
+        await DatabaseService.updateMatchLog(
+          a.copyWith(opponent: 'Mia W.', isWin: false),
+        );
 
-      final loaded = await DatabaseService.getMatchLogs();
-      expect(loaded.first.opponent, 'Mia W.');
-      expect(loaded.first.isWin, false);
-      expect(loaded.last.toMap(), b.toMap());
-    });
+        final loaded = await DatabaseService.getMatchLogs();
+        expect(loaded.first.opponent, 'Mia W.');
+        expect(loaded.first.isWin, false);
+        expect(loaded.last.toMap(), b.toMap());
+      },
+    );
 
     test('deleteMatchLog removes the row', () async {
       final l = log();
