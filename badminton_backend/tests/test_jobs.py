@@ -303,10 +303,16 @@ def test_jobs_routes_require_auth(client):
 # --- Slice 5: real pipeline runner (lazy badminton_track import) ---
 
 
-def test_real_runner_reports_missing_extras_as_failed_job(settings):
-    """badminton_track is deliberately NOT installed in the backend venv:
-    the default runner must turn that into an actionable failed job, not a
-    server crash."""
+def test_real_runner_reports_missing_extras_as_failed_job(settings, monkeypatch):
+    """The default runner must turn an unimportable badminton_track into an
+    actionable failed job, not a server crash. Hermetic: the package may or
+    may not be installed in this environment (it IS installed next to the
+    backend once the coach/tactics features are used), so block the import
+    explicitly instead of assuming an empty venv."""
+    import sys
+
+    monkeypatch.setitem(sys.modules, "badminton_track", None)
+    monkeypatch.setitem(sys.modules, "badminton_track.config", None)
     with TestClient(create_app(settings)) as client:  # default runner
         headers = register_and_login(client)
         player_id = make_player(client, headers)

@@ -5,7 +5,7 @@
 **Depends on:** TASK-050 (facts wire contract)
 **Effort:** M
 **Risk:** medium
-**Status:** todo
+**Status:** in-progress
 
 ## Goal
 
