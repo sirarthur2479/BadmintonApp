@@ -135,3 +135,55 @@ def test_delete_removes_single_point(client, auth_headers, player, match_log):
     assert resp.status_code == 204
     listed = client.get(url(player, match_log), headers=auth_headers).json()
     assert [p["id"] for p in listed] == ["pt-2"]
+
+
+def test_unknown_match_log_404s(client, auth_headers, player):
+    resp = client.get(url(player, "no-such-log"), headers=auth_headers)
+    assert resp.status_code == 404
+
+
+def test_foreign_match_log_404s_before_handler(client, auth_headers, player, match_log):
+    client.post(url(player, match_log), json=FLUTTER_POINT_RECORD, headers=auth_headers)
+    other_headers = register_and_login(client, email="other@example.com")
+    other_player = player_payload(name="Other Kid")
+    client.post("/api/v1/players", json=other_player, headers=other_headers)
+
+    # The other account reaches through ITS OWN player at OUR match log:
+    # the own-log guard 404s without leaking that the log exists.
+    foreign = url(other_player["id"], match_log)
+    assert client.get(foreign, headers=other_headers).status_code == 404
+    assert (
+        client.post(
+            foreign, json=point_payload(id="intruder"), headers=other_headers
+        ).status_code
+        == 404
+    )
+    assert client.delete(foreign, headers=other_headers).status_code == 404
+
+    # And the owner's points are untouched.
+    listed = client.get(url(player, match_log), headers=auth_headers).json()
+    assert [p["id"] for p in listed] == ["pt-1"]
+
+
+def test_deleting_match_log_cascades_points(client, auth_headers, player, match_log):
+    client.post(url(player, match_log), json=FLUTTER_POINT_RECORD, headers=auth_headers)
+
+    client.delete(
+        f"/api/v1/players/{player}/match-logs/{match_log}", headers=auth_headers
+    )
+
+    # Recreate the log: its points must NOT resurrect.
+    client.post(
+        f"/api/v1/players/{player}/match-logs",
+        json=FLUTTER_MATCH_LOG,
+        headers=auth_headers,
+    )
+    assert client.get(url(player, match_log), headers=auth_headers).json() == []
+
+
+def test_requires_auth(client, auth_headers, player, match_log):
+    assert client.get(url(player, match_log)).status_code == 401
+    assert (
+        client.post(url(player, match_log), json=FLUTTER_POINT_RECORD).status_code
+        == 401
+    )
