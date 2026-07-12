@@ -51,4 +51,52 @@ void main() {
       expect(MatchLog.fromMap(map).date, DateTime(2026, 7, 12, 14, 30));
     });
   });
+
+  group('MatchLog defaults', () {
+    test('fromMap applies defaults for missing optional fields', () {
+      final log = MatchLog.fromMap({
+        'id': 'bare-1',
+        'date': '2026-07-12T00:00:00.000',
+        'opponent': 'Sam L.',
+        'isWin': 0,
+      });
+
+      expect(log.eventContext, '');
+      expect(log.scores, '');
+      expect(log.gameplan, '');
+      expect(log.readinessScore, 3);
+      expect(log.performanceNotes, '');
+      expect(log.keyMoments, '');
+      expect(log.videoRef, isNull);
+    });
+
+    test('fromMap accepts explicit null videoRef', () {
+      final log = MatchLog.fromMap({
+        'id': 'bare-2',
+        'date': '2026-07-12T00:00:00.000',
+        'opponent': 'Sam L.',
+        'isWin': 1,
+        'videoRef': null,
+      });
+
+      expect(log.videoRef, isNull);
+    });
+
+    test('constructor defaults mirror fromMap defaults', () {
+      final log = MatchLog(
+        id: 'bare-3',
+        date: DateTime(2026, 7, 12),
+        opponent: 'Sam L.',
+        isWin: false,
+      );
+
+      expect(log.eventContext, '');
+      expect(log.scores, '');
+      expect(log.gameplan, '');
+      expect(log.readinessScore, 3);
+      expect(log.performanceNotes, '');
+      expect(log.keyMoments, '');
+      expect(log.videoRef, isNull);
+    });
+  });
 }
