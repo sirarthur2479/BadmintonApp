@@ -52,4 +52,21 @@ void main() {
 
     expect(find.byTooltip('Tag points'), findsNothing);
   });
+
+  testWidgets('tapping the opponent name fires onOpponentTap', (tester) async {
+    var tapped = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: MatchLogCard(
+            log: _log(),
+            onOpponentTap: () => tapped++,
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.textContaining('Ken T.'));
+    expect(tapped, 1);
+  });
 }

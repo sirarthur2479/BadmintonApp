@@ -8,6 +8,7 @@ import 'package:badminton_flutter/models/session.dart';
 import 'package:badminton_flutter/providers/match_log_provider.dart';
 import 'package:badminton_flutter/providers/point_record_provider.dart';
 import 'package:badminton_flutter/providers/session_provider.dart';
+import 'package:badminton_flutter/screens/train/opponent_profile_screen.dart';
 import 'package:badminton_flutter/screens/train/opponents_screen.dart';
 import 'package:badminton_flutter/screens/train/train_screen.dart';
 import 'package:badminton_flutter/services/database_service.dart';
@@ -120,5 +121,28 @@ void main() {
 
     expect(find.byType(OpponentsScreen), findsOneWidget);
     expect(find.text('Ken T.'), findsOneWidget);
+  });
+
+  testWidgets('tapping an opponent row opens the profile', (tester) async {
+    final provider = await _seed(tester, [_log('a')]);
+    final points = PointRecordProvider();
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider.value(value: provider),
+          ChangeNotifierProvider.value(value: points),
+        ],
+        child: const MaterialApp(home: OpponentsScreen()),
+      ),
+    );
+
+    await tester.tap(find.text('Ken T.'));
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 50)),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(OpponentProfileScreen), findsOneWidget);
   });
 }
