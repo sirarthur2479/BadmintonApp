@@ -55,6 +55,7 @@ def create_app(
     app.include_router(sessions_router.router, prefix="/api/v1")
     app.include_router(match_logs_router.router, prefix="/api/v1")
     app.include_router(point_records_router.router, prefix="/api/v1")
+    app.include_router(point_records_router.flat_router, prefix="/api/v1")
     app.include_router(tournaments_router.router, prefix="/api/v1")
     app.include_router(tags_router.router, prefix="/api/v1")
     app.include_router(uploads_router.router, prefix="/api/v1")

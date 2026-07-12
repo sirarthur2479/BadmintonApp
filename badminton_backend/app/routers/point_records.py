@@ -15,6 +15,13 @@ router = APIRouter(
     dependencies=[Depends(require_player)],
 )
 
+# The opponent-profiling feed: every point record of a player in one call.
+flat_router = APIRouter(
+    prefix="/players/{player_id}/points",
+    tags=["point-records"],
+    dependencies=[Depends(require_player)],
+)
+
 _COLS = (
     "id, matchLogId, game, indexInGame, server, winner, playerScore, "
     "opponentScore, rallyLength, endingType, endingShot, endingZone, "
@@ -109,3 +116,15 @@ def delete_point(
             "DELETE FROM point_records WHERE id = ? AND matchLogId = ?",
             (point_id, log_id),
         )
+
+
+@flat_router.get("", response_model=list[PointRecord])
+def list_player_points(player_id: str, request: Request) -> list[PointRecord]:
+    with get_conn(request.app.state.settings) as conn:
+        rows = conn.execute(
+            f"SELECT {_COLS} FROM point_records WHERE matchLogId IN "
+            "(SELECT id FROM match_logs WHERE playerId = ?) "
+            "ORDER BY matchLogId, game, indexInGame",
+            (player_id,),
+        ).fetchall()
+    return [PointRecord(**dict(r)) for r in rows]
