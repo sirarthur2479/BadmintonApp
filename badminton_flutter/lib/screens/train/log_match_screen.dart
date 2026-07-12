@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -7,12 +8,16 @@ import '../../models/match_log.dart';
 import '../../providers/match_log_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/star_rating.dart';
+import 'tag_points_screen.dart';
 
 class LogMatchScreen extends StatefulWidget {
   /// When non-null the screen edits this log instead of creating one.
   final MatchLog? existing;
 
-  const LogMatchScreen({super.key, this.existing});
+  /// Test seam; point tagging is mobile-only, like the upload features.
+  final bool? webOverride;
+
+  const LogMatchScreen({super.key, this.existing, this.webOverride});
 
   @override
   State<LogMatchScreen> createState() => _LogMatchScreenState();
@@ -107,7 +112,23 @@ class _LogMatchScreenState extends State<LogMatchScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(_isEditing ? 'Edit Match' : 'Log Match')),
+      appBar: AppBar(
+        title: Text(_isEditing ? 'Edit Match' : 'Log Match'),
+        actions: [
+          if (widget.existing?.videoRef != null &&
+              !(widget.webOverride ?? kIsWeb))
+            IconButton(
+              tooltip: 'Tag points',
+              icon: const Icon(Icons.sports_score),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => TagPointsScreen(log: widget.existing!),
+                ),
+              ),
+            ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [

@@ -282,7 +282,7 @@ class _TagPointsScreenState extends State<TagPointsScreen> {
                 ButtonSegment(value: 'opponent', label: Text('Their side')),
               ],
               emptySelectionAllowed: true,
-              selected: {if (_endingSide != null) _endingSide!},
+              selected: {?_endingSide},
               onSelectionChanged: (sel) => setState(
                 () => _endingSide = sel.isEmpty ? null : sel.first,
               ),

@@ -9,7 +9,17 @@ class MatchLogCard extends StatelessWidget {
   final VoidCallback? onTap;
   final VoidCallback? onDelete;
 
-  const MatchLogCard({super.key, required this.log, this.onTap, this.onDelete});
+  /// Opens the point-tagging screen. Only rendered when the log has a
+  /// video; callers leave it null on web (tagging is mobile-only).
+  final VoidCallback? onTagPoints;
+
+  const MatchLogCard({
+    super.key,
+    required this.log,
+    this.onTap,
+    this.onDelete,
+    this.onTagPoints,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -64,6 +74,20 @@ class MatchLogCard extends StatelessWidget {
                   StarRating(value: log.readinessScore, size: 14),
                   if (log.videoRef != null) ...[
                     const Spacer(),
+                    if (onTagPoints != null) ...[
+                      GestureDetector(
+                        onTap: onTagPoints,
+                        child: const Tooltip(
+                          message: 'Tag points',
+                          child: Icon(
+                            Icons.sports_score,
+                            size: 20,
+                            color: AppTheme.textSecondary,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
                     const Icon(
                       Icons.videocam_outlined,
                       size: 18,
