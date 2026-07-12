@@ -104,7 +104,7 @@ void main() {
     await DatabaseService.insertPointRecord(_point('pt-1'));
     await DatabaseService.insertPointRecord(_point('pt-2', indexInGame: 2));
 
-    await DatabaseService.deletePointRecord('pt-1');
+    await DatabaseService.deletePointRecord('log-1', 'pt-1');
 
     final points = await DatabaseService.getPointRecords('log-1');
     expect(points.map((p) => p.id).toList(), ['pt-2']);
