@@ -40,4 +40,12 @@ class MatchLogProvider extends ChangeNotifier {
     _matchLogs = _matchLogs.where((l) => l.id != id).toList();
     notifyListeners();
   }
+
+  // ── Computed properties ────────────────────────────────────────────────
+
+  int get wins => _matchLogs.where((l) => l.isWin).length;
+
+  int get losses => _matchLogs.where((l) => !l.isWin).length;
+
+  MatchLog? get latestLog => _matchLogs.isEmpty ? null : _matchLogs.first;
 }
