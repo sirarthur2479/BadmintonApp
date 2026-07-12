@@ -23,8 +23,7 @@ class MatchLogProvider extends ChangeNotifier {
 
   Future<void> addMatchLog(MatchLog log) async {
     await DatabaseService.insertMatchLog(log);
-    _matchLogs = [log, ..._matchLogs]
-      ..sort((a, b) => b.date.compareTo(a.date));
+    _matchLogs = [log, ..._matchLogs]..sort((a, b) => b.date.compareTo(a.date));
     notifyListeners();
   }
 

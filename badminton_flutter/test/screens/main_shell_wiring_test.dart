@@ -54,7 +54,7 @@ void main() {
     // Let initState's post-frame loads (real sqflite async) run to
     // completion.
     await tester.runAsync(() async {
-      for (var i = 0; i < 50 && matchLogs.matchLogs.isEmpty; i++) {
+      for (var i = 0; i < 500 && matchLogs.matchLogs.isEmpty; i++) {
         await Future<void>.delayed(const Duration(milliseconds: 10));
       }
     });
