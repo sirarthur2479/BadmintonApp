@@ -61,6 +61,20 @@ CREATE TABLE IF NOT EXISTS matches (
     isWin INTEGER NOT NULL,
     notes TEXT
 );
+CREATE TABLE IF NOT EXISTS match_logs (
+    id TEXT PRIMARY KEY,
+    playerId TEXT NOT NULL REFERENCES players (id) ON DELETE CASCADE,
+    date TEXT NOT NULL,
+    opponent TEXT NOT NULL,
+    eventContext TEXT NOT NULL DEFAULT '',
+    scores TEXT NOT NULL DEFAULT '',
+    isWin INTEGER NOT NULL,
+    gameplan TEXT NOT NULL DEFAULT '',
+    readinessScore INTEGER NOT NULL DEFAULT 3,
+    performanceNotes TEXT NOT NULL DEFAULT '',
+    keyMoments TEXT NOT NULL DEFAULT '',
+    videoRef TEXT
+);
 CREATE TABLE IF NOT EXISTS uploads (
     id TEXT PRIMARY KEY,
     accountId TEXT NOT NULL REFERENCES accounts (id) ON DELETE CASCADE,
