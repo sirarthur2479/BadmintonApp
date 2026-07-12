@@ -185,6 +185,7 @@ class FakeBackend {
       return http.Response(
         jsonEncode({'markdown': '# Tactical brief — ${body['opponent']}'}),
         200,
+        headers: {'content-type': 'application/json; charset=utf-8'},
       );
     }
     if (path.endsWith('/tags') && request.method == 'GET') {
