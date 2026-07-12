@@ -130,6 +130,10 @@ class DatabaseService {
       await db.execute(
           'ALTER TABLE sessions ADD COLUMN analysisCourtMapPath TEXT');
     }
+    if (oldVersion < 5) {
+      // v5: standalone per-match reflection logs (TASK-037).
+      await _createMatchLogsTable(db);
+    }
   }
 
   static Future<void> _createUploadQueueTable(DatabaseExecutor db) async {
