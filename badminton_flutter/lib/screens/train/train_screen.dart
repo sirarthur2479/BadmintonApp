@@ -37,7 +37,12 @@ class _TrainScreenState extends State<TrainScreen>
     return Scaffold(
       appBar: AppBar(
         title: const Text('Train'),
-        actions: [if (onSessionsTab) const SessionExportAction()],
+        actions: [
+          if (onSessionsTab)
+            const SessionExportAction()
+          else
+            const MatchLogExportAction(),
+        ],
         bottom: TabBar(
           controller: _tabs,
           tabs: const [

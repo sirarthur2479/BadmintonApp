@@ -14,10 +14,7 @@ class ExportService {
 
   static String _stars(int n) => '★' * n + '☆' * (5 - n);
 
-  static String sessionToMarkdown(
-    TrainingSession s, {
-    String? analysisReport,
-  }) {
+  static String sessionToMarkdown(TrainingSession s, {String? analysisReport}) {
     final b = StringBuffer()
       ..writeln('## Training Session — ${_dateFmt.format(s.date)}');
     if (s.sessionGoal.isNotEmpty) {

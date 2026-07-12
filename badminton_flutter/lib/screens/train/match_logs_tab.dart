@@ -1,11 +1,36 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../providers/match_log_provider.dart';
+import '../../services/export_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/confirm_delete.dart';
 import '../../widgets/match_log_card.dart';
 import 'log_match_screen.dart';
+
+/// The Match Logs tab's app-bar export button: shares every log as one
+/// Markdown document (same consumption path as the session export).
+class MatchLogExportAction extends StatelessWidget {
+  const MatchLogExportAction({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final logs = context.watch<MatchLogProvider>().matchLogs;
+    return IconButton(
+      icon: const Icon(Icons.ios_share),
+      tooltip: 'Export as Markdown',
+      onPressed: logs.isEmpty
+          ? null
+          : () => SharePlus.instance.share(
+              ShareParams(
+                text: ExportService.bulkExportMatchLogs(logs: logs),
+                subject: 'Match log export',
+              ),
+            ),
+    );
+  }
+}
 
 /// The Match Logs tab body: newest-first list with pull-to-refresh.
 class MatchLogsTab extends StatelessWidget {
