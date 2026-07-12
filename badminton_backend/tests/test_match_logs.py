@@ -117,3 +117,33 @@ def test_any_reports_presence_of_logs(client, auth_headers, player):
 
     assert before == {"any": False}
     assert after == {"any": True}
+
+
+def test_requires_auth(client, auth_headers, player):
+    assert client.get(url(player)).status_code == 401
+    assert client.post(url(player), json=FLUTTER_MATCH_LOG).status_code == 401
+
+
+def test_foreign_players_logs_are_invisible(client, auth_headers, player):
+    client.post(url(player), json=FLUTTER_MATCH_LOG, headers=auth_headers)
+    other_headers = register_and_login(client, email="other@example.com")
+
+    # The other account can't list, write into, or delete from this player:
+    # every route 404s before the handler runs, leaking nothing.
+    assert client.get(url(player), headers=other_headers).status_code == 404
+    assert (
+        client.post(
+            url(player), json=log_payload(id="intruder"), headers=other_headers
+        ).status_code
+        == 404
+    )
+    assert (
+        client.delete(
+            url(player, f"/{FLUTTER_MATCH_LOG['id']}"), headers=other_headers
+        ).status_code
+        == 404
+    )
+
+    # And the owner's data is untouched.
+    listed = client.get(url(player), headers=auth_headers).json()
+    assert [log["id"] for log in listed] == ["matchlog-1"]
