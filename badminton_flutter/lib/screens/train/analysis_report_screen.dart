@@ -16,8 +16,7 @@ class AnalysisReportScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final reportPath = session.analysisReportPath;
     final courtMapPath = session.analysisCourtMapPath;
-    final courtMapFile =
-        courtMapPath != null ? File(courtMapPath) : null;
+    final courtMapFile = courtMapPath != null ? File(courtMapPath) : null;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Coach Report')),

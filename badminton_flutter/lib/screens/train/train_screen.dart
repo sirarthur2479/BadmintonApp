@@ -39,7 +39,10 @@ class _TrainScreenState extends State<TrainScreen>
         actions: [if (onSessionsTab) const SessionExportAction()],
         bottom: TabBar(
           controller: _tabs,
-          tabs: const [Tab(text: 'Sessions'), Tab(text: 'Match Logs')],
+          tabs: const [
+            Tab(text: 'Sessions'),
+            Tab(text: 'Match Logs'),
+          ],
         ),
       ),
       body: TabBarView(

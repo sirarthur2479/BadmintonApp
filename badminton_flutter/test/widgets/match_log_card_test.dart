@@ -24,7 +24,9 @@ Future<void> pumpCard(
 }) {
   return tester.pumpWidget(
     MaterialApp(
-      home: Scaffold(body: MatchLogCard(log: log, onDelete: onDelete)),
+      home: Scaffold(
+        body: MatchLogCard(log: log, onDelete: onDelete),
+      ),
     ),
   );
 }

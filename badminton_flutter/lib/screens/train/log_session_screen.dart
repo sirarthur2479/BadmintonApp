@@ -235,9 +235,9 @@ class _LogSessionScreenState extends State<LogSessionScreen> {
                 ShareParams(
                   text: ExportService.sessionToMarkdown(
                     widget.session!,
-                    analysisReport: ExportService.loadAnalysisReports(
-                      [widget.session!],
-                    )[widget.session!.id],
+                    analysisReport: ExportService.loadAnalysisReports([
+                      widget.session!,
+                    ])[widget.session!.id],
                   ),
                   subject: 'Training session',
                 ),
