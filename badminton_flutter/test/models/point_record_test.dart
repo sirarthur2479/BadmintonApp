@@ -82,4 +82,124 @@ void main() {
       expect(point.shots, isEmpty);
     });
   });
+
+  group('PointRecord shots reservation (shot-ready)', () {
+    final withShots = PointRecord(
+      id: 'pt-4',
+      matchLogId: 'log-1',
+      game: 1,
+      indexInGame: 2,
+      server: 'player',
+      winner: 'player',
+      playerScore: 2,
+      opponentScore: 0,
+      endingType: 'winner',
+      shots: const [
+        {'shotType': 'serve', 'side': 'player', 'timestampMs': 1000},
+        {'shotType': 'smash', 'side': 'player', 'timestampMs': 3200},
+      ],
+    );
+
+    test('toMap JSON-encodes shots to a string', () {
+      final encoded = withShots.toMap()['shots'];
+      expect(encoded, isA<String>());
+      expect(encoded, contains('"shotType":"smash"'));
+    });
+
+    test('shots round-trip through toMap/fromMap', () {
+      final restored = PointRecord.fromMap(withShots.toMap());
+      expect(restored.shots, withShots.shots);
+    });
+
+    test('fromMap tolerates a missing shots key', () {
+      final map = withShots.toMap()..remove('shots');
+      expect(PointRecord.fromMap(map).shots, isEmpty);
+    });
+
+    test('fromMap tolerates a legacy empty shots string', () {
+      final map = withShots.toMap()..['shots'] = '';
+      expect(PointRecord.fromMap(map).shots, isEmpty);
+    });
+
+    test('shots default to empty', () {
+      expect(withShots.copyWith(id: 'pt-5').shots, isNotEmpty);
+      final bare = PointRecord(
+        id: 'pt-6',
+        matchLogId: 'log-1',
+        game: 1,
+        indexInGame: 1,
+        server: 'player',
+        winner: 'player',
+        playerScore: 1,
+        opponentScore: 0,
+        endingType: 'winner',
+      );
+      expect(bare.shots, isEmpty);
+    });
+  });
+
+  group('PointRecord copyWith', () {
+    final base = PointRecord(
+      id: 'pt-1',
+      matchLogId: 'log-1',
+      game: 1,
+      indexInGame: 4,
+      server: 'opponent',
+      winner: 'player',
+      playerScore: 3,
+      opponentScore: 1,
+      rallyLength: 6,
+      endingType: 'winner',
+      endingShot: 'drop',
+      endingZone: 'frontRight',
+      endingSide: 'opponent',
+      videoTimestampMs: 42000,
+    );
+
+    test('copyWith replaces only the given fields', () {
+      final edited = base.copyWith(winner: 'opponent', endingShot: 'net');
+
+      expect(edited.winner, 'opponent');
+      expect(edited.endingShot, 'net');
+      // Everything else is untouched.
+      expect(edited.id, base.id);
+      expect(edited.matchLogId, base.matchLogId);
+      expect(edited.game, base.game);
+      expect(edited.indexInGame, base.indexInGame);
+      expect(edited.server, base.server);
+      expect(edited.playerScore, base.playerScore);
+      expect(edited.opponentScore, base.opponentScore);
+      expect(edited.rallyLength, base.rallyLength);
+      expect(edited.endingType, base.endingType);
+      expect(edited.endingZone, base.endingZone);
+      expect(edited.endingSide, base.endingSide);
+      expect(edited.videoTimestampMs, base.videoTimestampMs);
+    });
+
+    test('copyWith with no arguments is an identical copy', () {
+      expect(base.copyWith().toMap(), base.toMap());
+    });
+  });
+
+  group('PointRecord vocabularies', () {
+    test('shared constants expose the closed enums', () {
+      expect(PointRecord.sides, ['player', 'opponent']);
+      expect(PointRecord.endingTypes, [
+        'winner',
+        'forcedError',
+        'unforcedError',
+      ]);
+      expect(PointRecord.endingShots, hasLength(10));
+      expect(PointRecord.endingShots.first, 'serve');
+      expect(PointRecord.endingShots.last, 'other');
+      expect(PointRecord.endingZones, [
+        'frontLeft',
+        'frontRight',
+        'midLeft',
+        'midRight',
+        'rearLeft',
+        'rearRight',
+      ]);
+    });
+  });
 }
