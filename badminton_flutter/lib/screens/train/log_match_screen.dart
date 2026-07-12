@@ -1,5 +1,7 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
@@ -17,7 +19,16 @@ class LogMatchScreen extends StatefulWidget {
   /// Test seam; point tagging is mobile-only, like the upload features.
   final bool? webOverride;
 
-  const LogMatchScreen({super.key, this.existing, this.webOverride});
+  /// Test seam for the choose-video flow: returns the picked path (null =
+  /// cancelled). Production shows the photo-library / file-browser sheet.
+  final Future<String?> Function()? videoPicker;
+
+  const LogMatchScreen({
+    super.key,
+    this.existing,
+    this.webOverride,
+    this.videoPicker,
+  });
 
   @override
   State<LogMatchScreen> createState() => _LogMatchScreenState();
@@ -76,6 +87,49 @@ class _LogMatchScreenState extends State<LogMatchScreen> {
       lastDate: DateTime.now().add(const Duration(days: 1)),
     );
     if (picked != null) setState(() => _date = picked);
+  }
+
+  Future<void> _chooseVideo() async {
+    final path = await (widget.videoPicker ?? _pickVideoPath)();
+    if (path == null || !mounted) return;
+    setState(() => _videoRefController.text = path);
+  }
+
+  /// Photo library (where phone recordings live) or the file browser
+  /// (Files app on mobile, the normal open dialog on the laptop).
+  Future<String?> _pickVideoPath() async {
+    final source = await showModalBottomSheet<String>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Photo library'),
+              onTap: () => Navigator.pop(context, 'library'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.folder_open),
+              title: const Text('Browse files'),
+              onTap: () => Navigator.pop(context, 'files'),
+            ),
+          ],
+        ),
+      ),
+    );
+    switch (source) {
+      case 'library':
+        final picked = await ImagePicker().pickVideo(
+          source: ImageSource.gallery,
+        );
+        return picked?.path;
+      case 'files':
+        final result = await FilePicker.pickFiles(type: FileType.video);
+        return result?.files.single.path;
+      default:
+        return null;
+    }
   }
 
   Future<void> _save() async {
@@ -218,9 +272,15 @@ class _LogMatchScreenState extends State<LogMatchScreen> {
           TextField(
             key: const ValueKey('videoRefField'),
             controller: _videoRefController,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'Video link or file',
-              hintText: 'Optional',
+              hintText: 'Optional — needed to tag points',
+              suffixIcon: IconButton(
+                key: const ValueKey('pickVideoButton'),
+                tooltip: 'Choose video',
+                icon: const Icon(Icons.video_library_outlined),
+                onPressed: _chooseVideo,
+              ),
             ),
           ),
           const SizedBox(height: 24),
