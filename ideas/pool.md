@@ -172,7 +172,7 @@ this order unless the owner overrides.
 ## 10. Match-point analysis & opponent profiling
 
 - **Added:** 2026-07-12
-- **Status:** in progress (TASK-042 → TASK-052; use-case: `ideas/use-cases/match-point-analysis.md`)
+- **Status:** done (TASK-042 → TASK-052, 2026-07-12; use-case: `ideas/use-cases/match-point-analysis.md`; phase 2 parked pending the shuttle-tracking pilot — see `research/shuttle-tracking.md`)
 - **Depends on:** #9 (match logs — done); phase 2 benefits from #4/#6 (footage
   pipeline + home analysis server)
 - **Source:** owner prompt — "the centrepiece: stage 0 record schema, phase 1

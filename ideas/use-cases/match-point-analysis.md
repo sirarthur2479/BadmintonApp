@@ -1,6 +1,8 @@
 # Match-point analysis & opponent profiling
 
-- **Status:** planned (TASK-042 → TASK-052)
+- **Status:** done (TASK-042 → TASK-052, 2026-07-12; phase 2 parked per the
+  shuttle-tracking MARGINAL verdict — the owner-run TrackNetV3 pilot in
+  `research/shuttle-tracking.md` §gate is the upgrade path)
 - **Added:** 2026-07-12
 - **Source:** `ideas/pool.md` #10 — owner prompt ("the centrepiece: stage 0
   record schema, phase 1 human-in-the-loop, phase 2 shuttle tracking (gated on
