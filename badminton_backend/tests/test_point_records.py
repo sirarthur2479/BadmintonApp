@@ -187,3 +187,37 @@ def test_requires_auth(client, auth_headers, player, match_log):
         client.post(url(player, match_log), json=FLUTTER_POINT_RECORD).status_code
         == 401
     )
+
+
+def flat_url(pid: str) -> str:
+    return f"/api/v1/players/{pid}/points"
+
+
+def test_flat_player_points_lists_across_logs(client, auth_headers, player, match_log):
+    other_log = dict(FLUTTER_MATCH_LOG, id="matchlog-2")
+    client.post(
+        f"/api/v1/players/{player}/match-logs", json=other_log, headers=auth_headers
+    )
+    client.post(
+        url(player, "matchlog-2"),
+        json=point_payload(id="pt-b", matchLogId="matchlog-2", game=1, indexInGame=1),
+        headers=auth_headers,
+    )
+    client.post(
+        url(player, match_log),
+        json=point_payload(id="pt-a", game=1, indexInGame=1),
+        headers=auth_headers,
+    )
+
+    listed = client.get(flat_url(player), headers=auth_headers)
+
+    assert listed.status_code == 200
+    assert [p["id"] for p in listed.json()] == ["pt-a", "pt-b"], "matchLogId order"
+
+
+def test_flat_listing_is_player_scoped(client, auth_headers, player, match_log):
+    client.post(url(player, match_log), json=FLUTTER_POINT_RECORD, headers=auth_headers)
+    other_headers = register_and_login(client, email="flat-other@example.com")
+
+    assert client.get(flat_url(player), headers=other_headers).status_code == 404
+    assert client.get(flat_url(player)).status_code == 401
