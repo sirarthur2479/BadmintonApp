@@ -9,6 +9,7 @@ import 'package:badminton_flutter/providers/match_log_provider.dart';
 import 'package:badminton_flutter/providers/session_provider.dart';
 import 'package:badminton_flutter/screens/train/train_screen.dart';
 import 'package:badminton_flutter/services/database_service.dart';
+import 'package:badminton_flutter/widgets/match_log_card.dart';
 import 'package:badminton_flutter/widgets/session_card.dart';
 
 MatchLog log({
@@ -67,6 +68,51 @@ void main() {
     expect(find.text('Train'), findsOneWidget);
     expect(find.widgetWithText(Tab, 'Sessions'), findsOneWidget);
     expect(find.widgetWithText(Tab, 'Match Logs'), findsOneWidget);
+  });
+
+  testWidgets('Match Logs tab shows empty state when provider has no logs', (
+    tester,
+  ) async {
+    await pumpTrain(tester);
+
+    await tester.tap(find.widgetWithText(Tab, 'Match Logs'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('No match logs yet'), findsOneWidget);
+    expect(find.byType(MatchLogCard), findsNothing);
+  });
+
+  testWidgets('Match Logs tab lists a card per log, newest first', (
+    tester,
+  ) async {
+    await pumpTrain(
+      tester,
+      logs: [
+        log(id: 'older', date: DateTime(2026, 7, 1), opponent: 'Mia W.'),
+        log(id: 'newer', date: DateTime(2026, 7, 10), opponent: 'Sam L.'),
+      ],
+    );
+
+    await tester.tap(find.widgetWithText(Tab, 'Match Logs'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(MatchLogCard), findsNWidgets(2));
+    final samY = tester.getTopLeft(find.text('Sam L.')).dy;
+    final miaY = tester.getTopLeft(find.text('Mia W.')).dy;
+    expect(samY, lessThan(miaY), reason: 'newest log renders first');
+  });
+
+  testWidgets('Match Logs tab FAB opens the match flow, not sessions', (
+    tester,
+  ) async {
+    await pumpTrain(tester);
+
+    await tester.tap(find.widgetWithText(Tab, 'Match Logs'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(FloatingActionButton));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Log Match'), findsOneWidget);
   });
 
   testWidgets('Sessions tab still lists sessions', (tester) async {
