@@ -44,12 +44,14 @@ void main() {
       expect(loss.toMap()['isWin'], 0);
     });
 
-    test('toMap encodes date as ISO-8601 string and fromMap parses it back',
-        () {
-      final map = full.toMap();
-      expect(map['date'], '2026-07-12T14:30:00.000');
-      expect(MatchLog.fromMap(map).date, DateTime(2026, 7, 12, 14, 30));
-    });
+    test(
+      'toMap encodes date as ISO-8601 string and fromMap parses it back',
+      () {
+        final map = full.toMap();
+        expect(map['date'], '2026-07-12T14:30:00.000');
+        expect(MatchLog.fromMap(map).date, DateTime(2026, 7, 12, 14, 30));
+      },
+    );
   });
 
   group('MatchLog defaults', () {
