@@ -168,7 +168,13 @@ Concrete plan for the phase-1 tagging screen:
 - **UI:** build the scrubber + step buttons + speed selector ourselves (small
   `Slider`-based widget over the interface); chewie/video_editor are pattern
   references only.
-- **Fallback ladder (documented, not built):** (1) if step/seek latency on
+- **2026-07-12 addendum:** the owner's laptop is Windows, where the
+  official plugin has no backend at all — so the first rung of the ladder
+  below is now BUILT, not just documented: `fvp.registerWith()` runs at
+  startup on Windows/Linux desktop only (iOS/Android keep the native
+  players). The closed-binary caveat is accepted for desktop because local
+  tagging playback never leaves the machine.
+- **Fallback ladder (documented, not built on mobile):** (1) if step/seek latency on
   device is poor → `fvp.registerWith()` — same Dart API, real frame-step and
   fastSeek in the mdk backend, ~10MB/arch, closed-binary caveat; (2) if a
   full engine swap is ever needed → media_kit (MIT, mpv), accepting its iOS

@@ -54,6 +54,11 @@ dependencies:
   # Desktop (Linux/Windows) sqlite backend; macOS/iOS/Android use sqflite
   # natively. Same pin the tests always used.
   sqflite_common_ffi: 2.3.4
+  # video_player has no Windows/Linux backend; fvp swaps in the mdk engine
+  # behind the same API (research/flutter-video.md documented fallback) so
+  # point tagging works on the Windows laptop. Registered at startup for
+  # desktop only — iOS/Android keep the native players.
+  fvp: ^0.37.0
 
 dev_dependencies:
   flutter_test:

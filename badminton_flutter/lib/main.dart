@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, kIsWeb, TargetPlatform;
+import 'package:fvp/fvp.dart' as fvp;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -32,6 +33,12 @@ Future<void> main() async {
           defaultTargetPlatform == TargetPlatform.windows)) {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
+    // The official video_player has no Windows/Linux backend. fvp swaps in
+    // its mdk engine behind the SAME video_player API, so the tagging
+    // screen's frame-accurate seeks work on the laptop unchanged
+    // (research/flutter-video.md fallback ladder). Local playback only —
+    // footage never leaves the machine.
+    fvp.registerWith();
   }
 
   final auth = AuthProvider();

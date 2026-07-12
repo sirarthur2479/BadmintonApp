@@ -39,21 +39,32 @@ best for tagging match points (side-by-side video + tag panel) and for
 reviewing opponent profiles. No server or internet needed; data lives in a
 local database exactly like on the phone.
 
-```bash
+Windows (PowerShell):
+
+```powershell
 cd badminton_flutter
 flutter pub get
-flutter run -d macos        # the primary laptop target
+flutter run -d windows
 ```
 
 Notes:
-- macOS supports everything, including video playback for point tagging.
-  Copy the match video onto the laptop (AirDrop works) and pick it with
-  the "Choose video" button on the match log.
-- `flutter run -d linux` / `-d windows` also work for data entry and
-  stats, but the official video plugin has no Linux/Windows backend, so
-  the tagging screen shows a placeholder instead of the video there.
+- Building for Windows needs Visual Studio with the "Desktop development
+  with C++" workload (`flutter doctor` will tell you if it's missing).
+- Video playback on Windows/Linux uses the fvp media engine (the app
+  registers it automatically at startup); the first build downloads it.
+  Playback is local-file only — footage never leaves the machine.
+- Copy the match video onto the laptop and pick it with the "Choose
+  video" button on the match log.
 - The tactical brief's AI narrative needs the analysis server + Ollama
   (Option B/C); without them the app shows the metrics-only brief.
+
+macOS (for a later port — everything above applies, video plays through
+the built-in AVFoundation backend instead):
+
+```bash
+cd badminton_flutter
+flutter run -d macos
+```
 
 ## Option B — Web App (local, with backend)
 
