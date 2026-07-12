@@ -5,7 +5,7 @@
 **Depends on:** TASK-035 (field contract)
 **Effort:** M
 **Risk:** low
-**Status:** in-progress
+**Status:** done
 
 ## Goal
 
