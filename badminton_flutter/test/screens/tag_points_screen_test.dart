@@ -172,4 +172,137 @@ void main() {
     // Header reflects the running score.
     expect(find.textContaining('1–0'), findsOneWidget);
   });
+
+  testWidgets('optional shot and zone are saved when picked, null when skipped', (
+    tester,
+  ) async {
+    final env = await pumpScreen(tester);
+    await chooseFirstServer(tester);
+
+    await tester.tap(find.byKey(const ValueKey('winnerOpponent')));
+    await tester.pump();
+    await tester.tap(find.text('Unforced error'));
+    await tester.pump();
+    await tester.tap(find.text('Smash'));
+    await tester.pump();
+    await tester.dragUntilVisible(
+      find.text('Rear L'),
+      find.byType(ListView),
+      const Offset(0, -100),
+    );
+    await tester.tap(find.text('Rear L'));
+    await tester.pump();
+    await tester.dragUntilVisible(
+      find.text('Our side'),
+      find.byType(ListView),
+      const Offset(0, -100),
+    );
+    await tester.tap(find.text('Our side'));
+    await tester.pump();
+    await tester.dragUntilVisible(
+      find.byKey(const ValueKey('savePointButton')),
+      find.byType(ListView),
+      const Offset(0, -100),
+    );
+    await savePoint(tester, env.provider, 1);
+
+    final tagged = env.provider.points.single;
+    expect(tagged.endingShot, 'smash');
+    expect(tagged.endingZone, 'rearLeft');
+    expect(tagged.endingSide, 'player');
+
+    // Second point with no optional tags: they stay null.
+    await tester.dragUntilVisible(
+      find.byKey(const ValueKey('winnerPlayer')),
+      find.byType(ListView),
+      const Offset(0, 100),
+    );
+    await tester.tap(find.byKey(const ValueKey('winnerPlayer')));
+    await tester.pump();
+    await tester.tap(find.text('Winner'));
+    await tester.pump();
+    await tester.dragUntilVisible(
+      find.byKey(const ValueKey('savePointButton')),
+      find.byType(ListView),
+      const Offset(0, -100),
+    );
+    await savePoint(tester, env.provider, 2);
+
+    final bare = env.provider.points.last;
+    expect(bare.endingShot, isNull);
+    expect(bare.endingZone, isNull);
+    expect(bare.endingSide, isNull);
+  });
+
+  testWidgets('undo removes the last point and rewinds the derived score', (
+    tester,
+  ) async {
+    final env = await pumpScreen(tester);
+    await chooseFirstServer(tester);
+
+    await tester.tap(find.byKey(const ValueKey('winnerPlayer')));
+    await tester.pump();
+    await tester.tap(find.text('Winner'));
+    await tester.pump();
+    await savePoint(tester, env.provider, 1);
+    expect(find.textContaining('1–0'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Undo last point'));
+    await tester.runAsync(() async {
+      for (var i = 0; i < 200 && env.provider.points.isNotEmpty; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+    });
+    await tester.pumpAndSettle();
+
+    expect(env.provider.points, isEmpty);
+    expect(find.textContaining('0–0'), findsOneWidget);
+  });
+
+  testWidgets('reopening with existing points resumes at the derived score', (
+    tester,
+  ) async {
+    await tester.runAsync(
+      () => DatabaseService.insertPointRecords([
+        seedPoint(1, 'player', playerScore: 1, opponentScore: 0),
+        seedPoint(2, 'opponent', playerScore: 1, opponentScore: 1),
+      ]),
+    );
+
+    await pumpScreen(tester);
+
+    expect(find.text('Who serves first?'), findsNothing);
+    expect(find.textContaining('1–1'), findsOneWidget);
+    expect(find.textContaining('2 points tagged'), findsOneWidget);
+  });
+
+  testWidgets('game rolls over after 21 with two clear', (tester) async {
+    // Seed game 1 already completed at 21–19: the next point is game 2.
+    await tester.runAsync(
+      () => DatabaseService.insertPointRecords([
+        seedPoint(1, 'player', playerScore: 21, opponentScore: 19),
+      ]),
+    );
+
+    final env = await pumpScreen(tester);
+
+    expect(find.textContaining('Game 2'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('winnerOpponent')));
+    await tester.pump();
+    await tester.tap(find.text('Winner'));
+    await tester.pump();
+    await savePoint(tester, env.provider, 2);
+
+    final next = env.provider.points.last;
+    expect(next.game, 2);
+    expect(next.indexInGame, 1);
+    expect(next.playerScore, 0);
+    expect(next.opponentScore, 1);
+    expect(
+      next.server,
+      'player',
+      reason: 'the game-1 winner serves first in game 2',
+    );
+  });
 }
