@@ -79,6 +79,12 @@ class OpponentStats {
   final double? pressurePointsWonRate;
   final int pressurePoints;
 
+  /// Raw counts behind the serve/receive rates, for count-carrying facts.
+  final int servePoints;
+  final int servePointsWon;
+  final int receivePoints;
+  final int receivePointsWon;
+
   /// short (≤4) / medium (5–9) / long (10+); bands with zero points are
   /// omitted entirely.
   final List<RallyBand> rallyBands;
@@ -102,6 +108,10 @@ class OpponentStats {
     this.receiveWinRate,
     this.pressurePointsWonRate,
     this.pressurePoints = 0,
+    this.servePoints = 0,
+    this.servePointsWon = 0,
+    this.receivePoints = 0,
+    this.receivePointsWon = 0,
     this.rallyBands = const [],
     this.opponentWinnersByShot = const {},
     this.playerUnforcedByShot = const {},
@@ -193,6 +203,10 @@ class OpponentStats {
       losses: ownLogs.where((l) => !l.isWin).length,
       taggedPoints: own.length,
       pointsWonRate: rate(won, own.length),
+      servePoints: served.length,
+      servePointsWon: served.where((p) => p.winner == 'player').length,
+      receivePoints: received.length,
+      receivePointsWon: received.where((p) => p.winner == 'player').length,
       serveWinRate: rate(
         served.where((p) => p.winner == 'player').length,
         served.length,

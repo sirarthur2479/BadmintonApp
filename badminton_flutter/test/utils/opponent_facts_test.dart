@@ -11,6 +11,10 @@ const _rich = OpponentStats(
   pointsWonRate: 0.55,
   serveWinRate: 0.583333,
   receiveWinRate: 0.45,
+  servePoints: 24,
+  servePointsWon: 14,
+  receivePoints: 16,
+  receivePointsWon: 7,
   pressurePointsWonRate: 0.25,
   pressurePoints: 4,
   rallyBands: [
