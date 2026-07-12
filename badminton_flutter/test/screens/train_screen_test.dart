@@ -8,6 +8,8 @@ import 'package:badminton_flutter/models/session.dart';
 import 'package:badminton_flutter/providers/match_log_provider.dart';
 import 'package:badminton_flutter/providers/session_provider.dart';
 import 'package:badminton_flutter/screens/train/log_match_screen.dart';
+import 'package:badminton_flutter/screens/train/match_logs_tab.dart';
+import 'package:badminton_flutter/screens/train/session_history_screen.dart';
 import 'package:badminton_flutter/screens/train/train_screen.dart';
 import 'package:badminton_flutter/services/database_service.dart';
 import 'package:badminton_flutter/widgets/match_log_card.dart';
@@ -133,6 +135,42 @@ void main() {
     expect(find.byType(LogMatchScreen), findsOneWidget);
     expect(find.text('Edit Match'), findsOneWidget);
     expect(find.text('Ken T.'), findsOneWidget);
+  });
+
+  testWidgets('each tab surfaces its own export action', (tester) async {
+    await pumpTrain(tester, logs: [log()]);
+
+    // Sessions tab: the training-history export.
+    expect(find.byType(SessionExportAction), findsOneWidget);
+    expect(find.byType(MatchLogExportAction), findsNothing);
+
+    await tester.tap(find.widgetWithText(Tab, 'Match Logs'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SessionExportAction), findsNothing);
+    expect(find.byType(MatchLogExportAction), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(MatchLogExportAction),
+        matching: find.byIcon(Icons.ios_share),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('export action is disabled with no logs', (tester) async {
+    await pumpTrain(tester);
+
+    await tester.tap(find.widgetWithText(Tab, 'Match Logs'));
+    await tester.pumpAndSettle();
+
+    final button = tester.widget<IconButton>(
+      find.descendant(
+        of: find.byType(MatchLogExportAction),
+        matching: find.byType(IconButton),
+      ),
+    );
+    expect(button.onPressed, isNull);
   });
 
   testWidgets('delete flows through the confirm dialog', (tester) async {
