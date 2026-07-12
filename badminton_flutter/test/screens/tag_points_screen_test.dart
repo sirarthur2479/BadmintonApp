@@ -197,13 +197,11 @@ void main() {
       find.byType(ListView),
       const Offset(0, -100),
     );
+    // dragUntilVisible stops at partial visibility; make the tap land.
+    await tester.ensureVisible(find.text('Our side'));
+    await tester.pump();
     await tester.tap(find.text('Our side'));
     await tester.pump();
-    await tester.dragUntilVisible(
-      find.byKey(const ValueKey('savePointButton')),
-      find.byType(ListView),
-      const Offset(0, -100),
-    );
     await savePoint(tester, env.provider, 1);
 
     final tagged = env.provider.points.single;
@@ -221,11 +219,6 @@ void main() {
     await tester.pump();
     await tester.tap(find.text('Winner'));
     await tester.pump();
-    await tester.dragUntilVisible(
-      find.byKey(const ValueKey('savePointButton')),
-      find.byType(ListView),
-      const Offset(0, -100),
-    );
     await savePoint(tester, env.provider, 2);
 
     final bare = env.provider.points.last;

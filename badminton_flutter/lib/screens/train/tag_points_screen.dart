@@ -288,8 +288,17 @@ class _TagPointsScreenState extends State<TagPointsScreen> {
               ),
             ),
           ),
-        const SizedBox(height: 12),
-        SizedBox(
+      ],
+    );
+  }
+
+  /// Save is pinned below the content on every screen size: tagging 40–80
+  /// points must never require scrolling to reach the button.
+  Widget _saveBar() {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+        child: SizedBox(
           width: double.infinity,
           child: ElevatedButton(
             key: const ValueKey('savePointButton'),
@@ -297,47 +306,76 @@ class _TagPointsScreenState extends State<TagPointsScreen> {
             child: const Text('Save point'),
           ),
         ),
-      ],
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Tag points — vs ${widget.log.opponent}'),
-        actions: [
-          Consumer<PointRecordProvider>(
-            builder: (context, provider, _) => IconButton(
-              tooltip: 'Undo last point',
-              icon: const Icon(Icons.undo),
-              onPressed: provider.points.isEmpty
-                  ? null
-                  : () => provider.undoLast(),
-            ),
-          ),
-        ],
-      ),
-      body: Consumer<PointRecordProvider>(
-        builder: (context, provider, _) {
-          final points = provider.points;
-          final needsFirstServer = points.isEmpty && _firstServer == null;
-          return ListView(
-            padding: const EdgeInsets.all(12),
-            children: [
-              _videoView(),
-              if (_videoReady) VideoScrubber(controller: _video),
-              const SizedBox(height: 8),
-              _header(points),
-              const SizedBox(height: 8),
-              if (needsFirstServer)
-                _firstServerPrompt()
-              else
-                _tagForm(points),
+    return Consumer<PointRecordProvider>(
+      builder: (context, provider, _) {
+        final points = provider.points;
+        final needsFirstServer = points.isEmpty && _firstServer == null;
+        final media = <Widget>[
+          _videoView(),
+          if (_videoReady) VideoScrubber(controller: _video),
+          const SizedBox(height: 8),
+          _header(points),
+        ];
+        return Scaffold(
+          appBar: AppBar(
+            title: Text('Tag points — vs ${widget.log.opponent}'),
+            actions: [
+              IconButton(
+                tooltip: 'Undo last point',
+                icon: const Icon(Icons.undo),
+                onPressed: points.isEmpty ? null : () => provider.undoLast(),
+              ),
             ],
-          );
-        },
-      ),
+          ),
+          body: LayoutBuilder(
+            builder: (context, constraints) {
+              // Laptop / landscape: video stays put on the left while the
+              // tag panel scrolls on the right — the whole per-point loop
+              // fits on screen at once.
+              final wide = constraints.maxWidth >= 900 && !needsFirstServer;
+              if (wide) {
+                return Row(
+                  key: const ValueKey('wideTagLayout'),
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: ListView(
+                        padding: const EdgeInsets.all(12),
+                        children: media,
+                      ),
+                    ),
+                    SizedBox(
+                      width: 400,
+                      child: ListView(
+                        padding: const EdgeInsets.all(12),
+                        children: [_tagForm(points)],
+                      ),
+                    ),
+                  ],
+                );
+              }
+              return ListView(
+                padding: const EdgeInsets.all(12),
+                children: [
+                  ...media,
+                  const SizedBox(height: 8),
+                  if (needsFirstServer)
+                    _firstServerPrompt()
+                  else
+                    _tagForm(points),
+                ],
+              );
+            },
+          ),
+          bottomNavigationBar: needsFirstServer ? null : _saveBar(),
+        );
+      },
     );
   }
 }
