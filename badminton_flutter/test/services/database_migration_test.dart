@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
+import 'package:badminton_flutter/models/match_log.dart';
 import 'package:badminton_flutter/models/session.dart';
 import 'package:badminton_flutter/services/database_service.dart';
 
@@ -127,5 +128,25 @@ void main() {
     expect(restored.intensity, isNull);
     expect(restored.drills, ['Multi-feed, front court']);
     expect(restored.sessionGoal, 'Faster recovery to base');
+  });
+
+  test('migration creates the match_logs table and keeps legacy sessions',
+      () async {
+    // v5: the upgraded database must accept match logs...
+    await DatabaseService.insertMatchLog(
+      MatchLog(
+        id: 'post-migration-log',
+        date: DateTime(2026, 7, 12),
+        opponent: 'Ken T.',
+        isWin: true,
+      ),
+    );
+
+    final logs = await DatabaseService.getMatchLogs();
+    expect(logs.single.id, 'post-migration-log');
+
+    // ...without disturbing the pre-migration data.
+    expect((await DatabaseService.getSessions()).single.id,
+        'legacy-session-1');
   });
 }
