@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
+import 'package:badminton_flutter/models/match_log.dart';
 import 'package:badminton_flutter/models/reflection_data.dart';
 import 'package:badminton_flutter/models/session.dart';
 import 'package:badminton_flutter/models/tournament.dart';
@@ -48,6 +49,7 @@ class FakeBackend {
   final sessions = <Map<String, dynamic>>[];
   final tournaments = <Map<String, dynamic>>[];
   final tags = <String>[];
+  final matchLogs = <Map<String, dynamic>>[];
   final requests = <String>[];
 
   ApiClient client() => ApiClient(
@@ -80,6 +82,30 @@ class FakeBackend {
     }
     if (path.contains('/sessions/') && request.method == 'DELETE') {
       sessions.removeWhere((s) => s['id'] == path.split('/').last);
+      return http.Response('', 204);
+    }
+    if (path.endsWith('/match-logs') && request.method == 'GET') {
+      return http.Response(jsonEncode(matchLogs), 200);
+    }
+    if (path.endsWith('/match-logs') && request.method == 'POST') {
+      matchLogs.add(jsonDecode(request.body));
+      return http.Response(request.body, 201);
+    }
+    if (path.endsWith('/match-logs/batch')) {
+      matchLogs.addAll((jsonDecode(request.body) as List).cast());
+      return http.Response('{}', 201);
+    }
+    if (path.endsWith('/match-logs/any')) {
+      return http.Response(jsonEncode({'any': matchLogs.isNotEmpty}), 200);
+    }
+    if (path.contains('/match-logs/') && request.method == 'PUT') {
+      final id = path.split('/').last;
+      final idx = matchLogs.indexWhere((l) => l['id'] == id);
+      matchLogs[idx] = jsonDecode(request.body);
+      return http.Response(request.body, 200);
+    }
+    if (path.contains('/match-logs/') && request.method == 'DELETE') {
+      matchLogs.removeWhere((l) => l['id'] == path.split('/').last);
       return http.Response('', 204);
     }
     if (path.endsWith('/tournaments') && request.method == 'GET') {
@@ -233,5 +259,74 @@ void main() {
     );
 
     expect(api.getSessions, throwsA(isA<ApiException>()));
+  });
+
+  group('match logs', () {
+    final log = MatchLog(
+      id: 'ml1',
+      date: DateTime(2026, 7, 12, 14, 30),
+      opponent: 'Ken T.',
+      eventContext: 'League round 3',
+      scores: '21-15, 18-21, 21-19',
+      isWin: true,
+      gameplan: 'Attack the backhand',
+      readinessScore: 4,
+      performanceNotes: 'Net play broke down',
+      keyMoments: 'Saved 2 game points',
+      videoRef: '/videos/league-r3.mp4',
+    );
+
+    test('insertMatchLog then getMatchLogs round-trips the wire', () async {
+      final backend = FakeBackend();
+      final api = service(backend);
+
+      await api.insertMatchLog(log);
+      final loaded = await api.getMatchLogs();
+
+      expect(loaded.single.toMap(), log.toMap());
+      expect(backend.matchLogs.single['isWin'], 1,
+          reason: 'isWin crosses the wire as a 0/1 int');
+    });
+
+    test('match-log urls scope to the active player', () async {
+      final backend = FakeBackend();
+      final api = service(backend, playerId: 'player-42');
+
+      await api.insertMatchLog(log);
+      await api.getMatchLogs();
+      await api.hasAnyMatchLogs();
+
+      expect(
+        backend.requests.every((r) => r.contains('/players/player-42/')),
+        isTrue,
+      );
+    });
+
+    test('updateMatchLog PUTs to the log id and deleteMatchLog removes',
+        () async {
+      final backend = FakeBackend();
+      final api = service(backend);
+      await api.insertMatchLog(log);
+
+      await api.updateMatchLog(log.copyWith(opponent: 'Mia W.'));
+      expect(backend.matchLogs.single['opponent'], 'Mia W.');
+      expect(backend.requests.last, 'PUT /players/p1/match-logs/ml1');
+
+      await api.deleteMatchLog(log.id);
+      expect(backend.matchLogs, isEmpty);
+    });
+
+    test('insertMatchLogs batches and hasAnyMatchLogs reflects state',
+        () async {
+      final backend = FakeBackend();
+      final api = service(backend);
+
+      expect(await api.hasAnyMatchLogs(), isFalse);
+      await api.insertMatchLogs([log, log.copyWith(id: 'ml2')]);
+
+      expect(backend.matchLogs, hasLength(2));
+      expect(backend.requests, contains('POST /players/p1/match-logs/batch'));
+      expect(await api.hasAnyMatchLogs(), isTrue);
+    });
   });
 }
