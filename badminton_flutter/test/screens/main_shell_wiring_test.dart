@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'package:badminton_flutter/app.dart';
@@ -19,6 +20,9 @@ void main() {
   });
 
   setUp(() async {
+    // ProfileProvider's load path reads SharedPreferences; without the mock
+    // it throws an async MissingPluginException that lands on this test.
+    SharedPreferences.setMockInitialValues({});
     await DatabaseService.resetForTests();
   });
 
