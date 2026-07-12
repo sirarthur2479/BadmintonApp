@@ -32,6 +32,29 @@ flutter run -d <device-id>
 
 ---
 
+## Option A2 — Laptop App (desktop, no backend, no internet)
+
+Runs the same offline-first app as mobile, on the laptop's big screen —
+best for tagging match points (side-by-side video + tag panel) and for
+reviewing opponent profiles. No server or internet needed; data lives in a
+local database exactly like on the phone.
+
+```bash
+cd badminton_flutter
+flutter pub get
+flutter run -d macos        # the primary laptop target
+```
+
+Notes:
+- macOS supports everything, including video playback for point tagging.
+  Copy the match video onto the laptop (AirDrop works) and pick it with
+  the "Choose video" button on the match log.
+- `flutter run -d linux` / `-d windows` also work for data entry and
+  stats, but the official video plugin has no Linux/Windows backend, so
+  the tagging screen shows a placeholder instead of the video there.
+- The tactical brief's AI narrative needs the analysis server + Ollama
+  (Option B/C); without them the app shows the metrics-only brief.
+
 ## Option B — Web App (local, with backend)
 
 ### Step 1 — Start Docker Desktop
