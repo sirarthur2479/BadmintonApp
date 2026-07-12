@@ -7,7 +7,6 @@ import 'package:badminton_flutter/models/match_log.dart';
 import 'package:badminton_flutter/providers/match_log_provider.dart';
 import 'package:badminton_flutter/screens/train/log_match_screen.dart';
 import 'package:badminton_flutter/services/database_service.dart';
-import 'package:badminton_flutter/widgets/star_rating.dart';
 
 Future<MatchLogProvider> pumpForm(
   WidgetTester tester, {
@@ -26,11 +25,7 @@ Future<MatchLogProvider> pumpForm(
   return provider;
 }
 
-Future<void> enterField(
-  WidgetTester tester,
-  String key,
-  String text,
-) async {
+Future<void> enterField(WidgetTester tester, String key, String text) async {
   await tester.scrollUntilVisible(
     find.byKey(ValueKey(key)),
     200,
@@ -98,8 +93,11 @@ void main() {
     await saveForm(tester, provider);
 
     expect(provider.matchLogs, isEmpty);
-    expect(find.byType(LogMatchScreen), findsOneWidget,
-        reason: 'screen must not pop on a blocked save');
+    expect(
+      find.byType(LogMatchScreen),
+      findsOneWidget,
+      reason: 'screen must not pop on a blocked save',
+    );
   });
 
   testWidgets('edit mode pre-fills and updates with the same id', (

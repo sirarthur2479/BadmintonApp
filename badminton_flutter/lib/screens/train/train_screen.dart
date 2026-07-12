@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'log_match_screen.dart';
 import 'log_session_screen.dart';
 import 'match_logs_tab.dart';
 import 'session_history_screen.dart';
@@ -55,7 +56,7 @@ class _TrainScreenState extends State<TrainScreen>
           MaterialPageRoute(
             builder: (_) => onSessionsTab
                 ? const LogSessionScreen()
-                : const LogMatchPlaceholder(),
+                : const LogMatchScreen(),
           ),
         ),
         child: const Icon(Icons.add),

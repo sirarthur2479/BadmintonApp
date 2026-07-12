@@ -227,9 +227,9 @@ class _SectionLabel extends StatelessWidget {
       child: Text(
         text,
         style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              color: AppTheme.textSecondary,
-              fontWeight: FontWeight.bold,
-            ),
+          color: AppTheme.textSecondary,
+          fontWeight: FontWeight.bold,
+        ),
       ),
     );
   }

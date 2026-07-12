@@ -120,7 +120,10 @@ void main() {
   testWidgets('tapping a card opens the log pre-filled for editing', (
     tester,
   ) async {
-    await pumpTrain(tester, logs: [log(id: 'edit-me', opponent: 'Ken T.')]);
+    await pumpTrain(
+      tester,
+      logs: [log(id: 'edit-me', opponent: 'Ken T.')],
+    );
 
     await tester.tap(find.widgetWithText(Tab, 'Match Logs'));
     await tester.pumpAndSettle();

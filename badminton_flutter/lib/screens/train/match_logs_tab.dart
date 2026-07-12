@@ -5,6 +5,7 @@ import '../../providers/match_log_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/confirm_delete.dart';
 import '../../widgets/match_log_card.dart';
+import 'log_match_screen.dart';
 
 /// The Match Logs tab body: newest-first list with pull-to-refresh.
 class MatchLogsTab extends StatelessWidget {
@@ -45,6 +46,12 @@ class MatchLogsTab extends StatelessWidget {
               final log = logs[index];
               return MatchLogCard(
                 log: log,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => LogMatchScreen(existing: log),
+                  ),
+                ),
                 onDelete: () async {
                   final confirmed = await confirmDelete(
                     context,
@@ -58,15 +65,5 @@ class MatchLogsTab extends StatelessWidget {
         );
       },
     );
-  }
-}
-
-/// Stand-in until LogMatchScreen lands (TASK-040).
-class LogMatchPlaceholder extends StatelessWidget {
-  const LogMatchPlaceholder({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(appBar: AppBar(title: const Text('Log Match')));
   }
 }
