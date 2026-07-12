@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:badminton_trainer/models/match_log.dart';
+import 'package:badminton_flutter/models/match_log.dart';
 
 void main() {
   group('MatchLog map round-trip', () {
