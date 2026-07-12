@@ -158,12 +158,17 @@ Three stages, in the owner's own framing:
 
 ## Relevant domains
 
-- **shuttle-tracking** — NEW, missing → `/research shuttle-tracking`
-  (the phase-2 gate: TrackNet family, badminton rally segmentation,
-  feasibility on local Apple Silicon).
-- **flutter-video** — NEW, missing → `/research flutter-video`
-  (local-file playback with reliable seek/scrub/frame-step for tagging:
-  video_player vs media_kit vs alternatives).
+- **shuttle-tracking** — `research/shuttle-tracking.md` (2026-07-12).
+  **Gate verdict: MARGINAL → phase 2 is parked.** Shuttle detection / rally
+  segmentation / rally length are feasible (TrackNetV3 pretrained weights or
+  a YOLO11n fine-tune, offline MPS job); ending-shot type and per-shot lists
+  are not — they stay human. Upgrade path: a half-day pilot running
+  pretrained TrackNetV3 on 2–3 real rallies (needs the owner's footage, so
+  it is a future owner-run spike, not a task in this plan).
+- **flutter-video** — `research/flutter-video.md` (2026-07-12). Adopt the
+  official `video_player` (frame-accurate iOS `seekTo`, 100 ms position
+  stream since 2.9.4) behind a repo-owned tagging-controller seam with a
+  hand-driven fake; `fvp` documented as a same-API backend fallback.
 - local-llm — `research/local-llm.md` (2026-07-05, fresh) → reuse.
 - cv-tracking — `research/cv-tracking.md` (2026-07-05, fresh) → reuse for
   phase-2 context.
