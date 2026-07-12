@@ -115,6 +115,22 @@ class ApiService {
   Future<void> clearPointRecords(String matchLogId) =>
       _client.delete('$_base/match-logs/$matchLogId/points');
 
+  // ── Opponent brief (account-scoped, not player-scoped) ──────────────────
+
+  /// Sends the pre-worded facts to the tactics engine; returns Markdown.
+  /// Throws [ApiException] (503) when the server can't run the LLM — the
+  /// caller falls back to the metrics-only brief.
+  Future<String> requestOpponentBrief(
+    String opponent,
+    List<String> facts,
+  ) async {
+    final body = await _client.postJson('/coach/opponent-brief', {
+      'opponent': opponent,
+      'facts': facts,
+    });
+    return body['markdown'] as String;
+  }
+
   // ── Tournaments ──────────────────────────────────────────────────────────
 
   Future<List<Tournament>> getTournaments() async {

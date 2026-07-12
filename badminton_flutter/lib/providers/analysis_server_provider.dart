@@ -129,6 +129,25 @@ class AnalysisServerProvider extends ChangeNotifier {
     }
   }
 
+  /// Sends the pre-worded opponent facts to the home server's tactics
+  /// engine (pool #10) and returns the brief Markdown. Throws [StateError]
+  /// when no server is configured / signed in, [ApiException] when the
+  /// server can't run the LLM — callers fall back to the metrics-only
+  /// brief either way.
+  Future<String> requestOpponentBrief(
+    String opponent,
+    List<String> facts,
+  ) async {
+    if (_address == null || _token == null) {
+      throw StateError('no analysis server configured');
+    }
+    final body = await _api().postJson('/coach/opponent-brief', {
+      'opponent': opponent,
+      'facts': facts,
+    });
+    return body['markdown'] as String;
+  }
+
   Future<void> signOut() async {
     _address = null;
     _token = null;
