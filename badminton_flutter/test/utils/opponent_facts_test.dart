@@ -88,4 +88,35 @@ void main() {
       expect(facts, isNot(contains('33.3')));
     });
   });
+
+  group('metricsOnlyBrief', () {
+    test('is valid markdown with name header and facts bullets', () {
+      final brief = metricsOnlyBrief('Ken T.', _rich);
+
+      expect(brief, startsWith('# Opponent brief — Ken T.'));
+      expect(
+        brief,
+        contains('- Head-to-head vs Ken T.: won 3 of 5 matches.'),
+      );
+      expect(
+        brief,
+        contains('- On our serve we win 58% of points (14/24 tagged).'),
+      );
+    });
+
+    test('carries the no-AI note', () {
+      final brief = metricsOnlyBrief('Ken T.', _rich);
+
+      expect(brief, contains('metrics only'));
+      expect(brief, contains('no AI narrative'));
+    });
+
+    test('zero tagged points yields a logs-only brief', () {
+      final brief = metricsOnlyBrief('Mia W.', _logsOnly);
+
+      expect(brief, contains('- Head-to-head vs Mia W.: won 0 of 2 matches.'));
+      expect(brief, isNot(contains('serve')));
+      expect(brief, isNot(contains('null')));
+    });
+  });
 }
