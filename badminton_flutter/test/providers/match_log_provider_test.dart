@@ -86,6 +86,27 @@ void main() {
     );
   });
 
+  test('wins and losses count isWin flags, latestLog is newest', () async {
+    final provider = MatchLogProvider();
+    await provider.loadMatchLogs();
+
+    expect(provider.latestLog, isNull);
+
+    await provider.addMatchLog(
+      _log(id: 'w1', date: DateTime(2026, 7, 1), isWin: true),
+    );
+    await provider.addMatchLog(
+      _log(id: 'l1', date: DateTime(2026, 7, 5), isWin: false),
+    );
+    await provider.addMatchLog(
+      _log(id: 'w2', date: DateTime(2026, 7, 10), isWin: true),
+    );
+
+    expect(provider.wins, 2);
+    expect(provider.losses, 1);
+    expect(provider.latestLog!.id, 'w2');
+  });
+
   test('deleteMatchLog removes from db and memory', () async {
     final provider = MatchLogProvider();
     await provider.loadMatchLogs();
