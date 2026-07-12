@@ -1,6 +1,6 @@
 # Match-log feature — per-match reflection log
 
-- **Status:** planned (TASK-035 → TASK-041)
+- **Status:** done (TASK-035 → TASK-041, 2026-07-12)
 - **Added:** 2026-07-12
 - **Source:** `ideas/pool.md` #9 — feature originally built on the
   `A2-remote-signin-improve-log-feature` branch, recovered as a *description*
