@@ -102,6 +102,56 @@ void main() {
         reason: 'screen must not pop on a blocked save');
   });
 
+  testWidgets('edit mode pre-fills and updates with the same id', (
+    tester,
+  ) async {
+    final existing = MatchLog(
+      id: 'edit-me',
+      date: DateTime(2026, 7, 5),
+      opponent: 'Ken T.',
+      eventContext: 'Practice',
+      scores: '21-10, 21-12',
+      isWin: false,
+      gameplan: 'Serve variation',
+      readinessScore: 2,
+      performanceNotes: 'Slow start',
+      keyMoments: 'None',
+      videoRef: '/videos/practice.mp4',
+    );
+    final provider = await pumpForm(tester, existing: existing);
+    await tester.runAsync(() => provider.addMatchLog(existing));
+
+    // Pre-filled fields and edit-mode chrome.
+    expect(find.text('Edit Match'), findsOneWidget);
+    expect(find.text('Ken T.'), findsOneWidget);
+    expect(find.text('Practice'), findsOneWidget);
+    expect(find.text('21-10, 21-12'), findsOneWidget);
+    expect(find.text('Serve variation'), findsOneWidget);
+
+    await enterField(tester, 'performanceNotesField', 'Found rhythm late');
+    await tester.drag(find.byType(ListView), const Offset(0, -200));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Update Match'));
+    await tester.runAsync(() async {
+      for (
+        var i = 0;
+        i < 200 &&
+            provider.matchLogs.single.performanceNotes != 'Found rhythm late';
+        i++
+      ) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+    });
+
+    final saved = provider.matchLogs.single;
+    expect(saved.id, 'edit-me', reason: 'update must keep the id');
+    expect(saved.performanceNotes, 'Found rhythm late');
+    expect(saved.opponent, 'Ken T.');
+    expect(saved.isWin, isFalse);
+    expect(saved.readinessScore, 2);
+    expect(saved.videoRef, '/videos/practice.mp4');
+  });
+
   testWidgets('win/loss toggle and readiness stars land in the saved log', (
     tester,
   ) async {
