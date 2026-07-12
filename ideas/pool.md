@@ -2,6 +2,33 @@
 
 Entries are picked up by `/intake`. Status: (blank) = unprocessed, in-progress, done.
 
+## North star (2026-07-12)
+
+One idea underneath every feature here: **a player development record that an
+AI coach reads and writes.** Four verbs in a loop:
+
+1. **Capture** — session logs (done), drill videos (done), per-point match
+   clips (#10), spoken notes (#8), match reflections (#9).
+2. **Analyze** — CV pipelines turn each capture into facts (footwork metrics,
+   joint angles, two-player movement, later shuttle/rally events); STT turns
+   voice into structured notes.
+3. **Remember** — a persistent development record per player, plus scouting
+   profiles per opponent. Every analyzer writes facts into it; reports stop
+   being one-offs.
+4. **Advise** — the local LLM reads the *accumulated* record: post-game
+   reports, trend reviews, drills targeted at recurring mistakes, pre-match
+   scouting on known opponents.
+
+"Remember" is what a real coach does that no single-video tool can — and it's
+the part of the owner's manual post-game routine still living in their head.
+
+Delivery stays sliced (one pool idea at a time, as ever), but one thing gets
+designed once, up front: the **record's data model** — a facts store (player
+facts, opponent facts; each with source, date, confidence) that footwork,
+biomech, match analysis, and voice notes all write into and the coach module
+reads from. That design is stage 0 of #10's intake; without it each pipeline
+keeps emitting disconnected one-off summaries and there is no memory.
+
 ## Priority order
 
 Ordered by dependency first, then value/effort. `/intake` should offer items in
@@ -9,16 +36,22 @@ this order unless the owner overrides.
 
 | # | Idea | Why this position |
 |---|------|-------------------|
-| 1 | Flutter app bug batch (B1–B8) | Small, mechanical; restores trust in data (fake seeds, broken photos) before anything is built on top |
-| 2 | Flutter app test foundation | Cheap; prerequisite safety net for the Part A refactor |
-| 3 | Log-session improvement plan (Part A) + comma-safe drills | Already specced; session editing is the most-wanted daily feature; markdown export is a prerequisite for AI analysis features |
-| 4 | BadmintonTrack-12 core (standalone CLI) | Independent Python track — can run in parallel with 1–3; prerequisite for #6 |
-| 5 | Self-hosted backend (accounts/players API) | Already specced in docs; gives the app a home server — the natural host for #6's analysis service |
-| 6 | BadmintonTrack-12 in-app integration (WiFi upload → home server) | Depends on #4 (pipeline) and benefits from #5 (server + auth); the end-state UX |
-| 7 | Flutter app quality-of-life batch | Anytime filler; no dependencies, lower value per item |
-| 8 | Audio session logging (local STT for spoken notes) | Anytime filler; no dependencies, small/self-contained, reuses a proven external pattern |
-| 9 | Match-log feature (per-match reflection log) | Independent branch work recovered during a rebase onto main; needs rework to sit on top of the multi-player architecture (#5) before it can land |
-| 10 | Match-point analysis & opponent profiling | The owner's real post-game workflow (2026-07-12 first real-usage review); staged so phase 1 needs no new CV research and replaces the manual routine immediately |
+| 1 | Flutter app bug batch (B1–B8) | done |
+| 2 | Flutter app test foundation | done |
+| 3 | Log-session improvement plan (Part A) + comma-safe drills | done |
+| 4 | BadmintonTrack-12 core (standalone CLI) | done |
+| 5 | Self-hosted backend (accounts/players API) | done |
+| 6 | BadmintonTrack-12 in-app integration (WiFi upload → home server) | done |
+| 9 | Match-log feature (per-match reflection log) | **Next.** The development record's human-authored layer and the UI surface #10 attaches clips/reports/profiles to; already part-built, needs rework onto the multi-player architecture. Doing it first avoids building #10 against the wrong surface |
+| 8 | Audio session logging (local STT for spoken notes) | Small and self-contained; lands the voice-capture path #10 phase 1 uses for per-point notes. Can also run as filler in parallel with #9 |
+| 10 | Match-point analysis & opponent profiling | The centrepiece. Stage 0 = design the shared development-record schema (north star above); phase 1 (two-player tracking + human tags + opponent profiles) needs no new CV research; phase 2 (shuttle tracking) gated on a `/research` pass **and** on manual validation of the existing pipeline with real footage first |
+| 7 | Flutter app quality-of-life batch | Anytime filler; no dependencies, lower value per item. Note: its "per-opponent record" item is superseded by #10's opponent profiles |
+
+Cross-cutting gate: before investing in #10 phase 2, run the **manual test
+pass** of the existing pipeline (real footage through CLI → server → app; see
+2026-07-12 session findings: track README missing, Docker image can't run the
+pipeline, calibration path coupling) — it validates the CV foundation
+everything above builds on.
 
 ---
 
@@ -178,13 +211,19 @@ this order unless the owner overrides.
   actual routine is the reverse — after every game they manually review 1–2
   minute clips of individual points/interactions to discuss the player's
   mistakes and the opponent's habits. This idea automates that routine.
-- **Depends on:** #4 (pipeline) and #6 (upload/job loop), both done. Strong
-  synergy with #8 (local STT — spoken per-point notes) and the per-venue
-  calibration friction found in the same review (tap-4-corners on a frame in
-  the app would solve both).
+- **Depends on:** #4 (pipeline) and #6 (upload/job loop), both done. #9
+  (match log) should land first — it is the UI surface per-point clips,
+  post-game reports, and opponent profiles attach to. Strong synergy with #8
+  (local STT — spoken per-point notes) and the per-venue calibration friction
+  found in the same review (tap-4-corners on a frame in the app would solve
+  both).
 - **Architecture principle (carried over from #4):** CV extracts verifiable
   facts; the local LLM reasons over facts, never raw video. Each phase widens
   the fact vocabulary.
+- **Stage 0 — shared development-record schema (see north star):** design the
+  facts store (player facts + opponent facts, each with source/date/
+  confidence) that this and all other analyzers write into and the coach
+  module reads from. Design once, before phase 1 emits its first report.
 - **Phase 1 — human-in-the-loop, no new CV research:**
   - Track BOTH players (homography + feet projection already work for the far
     half): coverage, speed, recovery for player and opponent → opponent
