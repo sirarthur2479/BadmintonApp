@@ -18,6 +18,7 @@ this order unless the owner overrides.
 | 7 | Flutter app quality-of-life batch | Anytime filler; no dependencies, lower value per item |
 | 8 | Audio session logging (local STT for spoken notes) | Anytime filler; no dependencies, small/self-contained, reuses a proven external pattern |
 | 9 | Match-log feature (per-match reflection log) | Independent branch work recovered during a rebase onto main; needs rework to sit on top of the multi-player architecture (#5) before it can land |
+| 10 | Match-point analysis & opponent profiling | The centrepiece: turns match logs (#9) + the footage pipeline (#4/#6) into tactical intelligence; staged so value lands before the hard CV (phase 2 gated on a shuttle-tracking research pass) |
 
 ---
 
@@ -167,3 +168,26 @@ this order unless the owner overrides.
   wire `MatchLogProvider` to construct via `ApiService` on web like
   `SessionProvider` does, and merge `TrainScreen` into `MainShell` in place of
   `SessionHistoryScreen` without breaking main's player-select routing.
+
+## 10. Match-point analysis & opponent profiling
+
+- **Added:** 2026-07-12
+- **Status:** in progress (use-case: `ideas/use-cases/match-point-analysis.md`)
+- **Depends on:** #9 (match logs — done); phase 2 benefits from #4/#6 (footage
+  pipeline + home analysis server)
+- **Source:** owner prompt — "the centrepiece: stage 0 record schema, phase 1
+  human-in-the-loop, phase 2 shuttle tracking (gated on a /research pass)"
+- **Summary:** Mine matches point-by-point to profile opponents. Stage 0: a
+  `PointRecord` schema (point-level, shot-ready — a reserved per-shot list so
+  phase 2 needs no migration) attached to match logs across the usual three
+  surfaces (sqflite / backend / ApiService). Phase 1: tag points from recorded
+  video in the app (scrub + fast tap flow; server & score auto-derived).
+  Profiling: deterministic per-opponent aggregates (serve vs receive win %,
+  rally-length bands, finishing-shot & error profiles, pressure points) on an
+  opponent profile screen, plus a local-Ollama tactical brief in the
+  BadmintonTrack-12 coach style via the home server. Phase 2 (gated on
+  `/research shuttle-tracking`): auto-extract the same records from footage.
+- **Owner decisions (2026-07-12):** tagging from video afterwards (not live
+  courtside); point-level shot-ready granularity; output = in-app stats +
+  LLM report. Privacy rules carry over from #6: footage of a minor, LAN-only,
+  local LLM only.
