@@ -11,6 +11,7 @@ import 'package:badminton_flutter/services/database_service.dart';
 Future<MatchLogProvider> pumpForm(
   WidgetTester tester, {
   MatchLog? existing,
+  Future<String?> Function()? videoPicker,
 }) async {
   await tester.runAsync(() => DatabaseService.resetForTests());
   final provider = MatchLogProvider();
@@ -19,7 +20,9 @@ Future<MatchLogProvider> pumpForm(
   await tester.pumpWidget(
     ChangeNotifierProvider.value(
       value: provider,
-      child: MaterialApp(home: LogMatchScreen(existing: existing)),
+      child: MaterialApp(
+        home: LogMatchScreen(existing: existing, videoPicker: videoPicker),
+      ),
     ),
   );
   return provider;
@@ -169,5 +172,61 @@ void main() {
     final saved = provider.matchLogs.single;
     expect(saved.isWin, isFalse);
     expect(saved.readinessScore, 5);
+  });
+
+  group('video picker', () {
+    testWidgets('choose-video button fills the field from the picker', (
+      tester,
+    ) async {
+      await pumpForm(
+        tester,
+        videoPicker: () async => '/videos/league-r3.mp4',
+      );
+
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('pickVideoButton')),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.byKey(const ValueKey('pickVideoButton')));
+      await tester.pumpAndSettle();
+
+      final field = tester.widget<TextField>(
+        find.byKey(const ValueKey('videoRefField')),
+      );
+      expect(field.controller!.text, '/videos/league-r3.mp4');
+    });
+
+    testWidgets('cancelling the picker leaves the field untouched', (
+      tester,
+    ) async {
+      await pumpForm(tester, videoPicker: () async => null);
+
+      await enterField(tester, 'videoRefField', '/existing.mp4');
+      await tester.tap(find.byKey(const ValueKey('pickVideoButton')));
+      await tester.pumpAndSettle();
+
+      final field = tester.widget<TextField>(
+        find.byKey(const ValueKey('videoRefField')),
+      );
+      expect(field.controller!.text, '/existing.mp4');
+    });
+
+    testWidgets('without a seam the button opens the source sheet', (
+      tester,
+    ) async {
+      await pumpForm(tester);
+
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('pickVideoButton')),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.byKey(const ValueKey('pickVideoButton')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Photo library'), findsOneWidget);
+      expect(find.text('Browse files'), findsOneWidget);
+    });
   });
 }
