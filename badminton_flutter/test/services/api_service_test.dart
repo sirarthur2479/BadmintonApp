@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 import 'package:badminton_flutter/models/match_log.dart';
+import 'package:badminton_flutter/models/point_record.dart';
 import 'package:badminton_flutter/models/reflection_data.dart';
 import 'package:badminton_flutter/models/session.dart';
 import 'package:badminton_flutter/models/tournament.dart';
@@ -50,6 +51,7 @@ class FakeBackend {
   final tournaments = <Map<String, dynamic>>[];
   final tags = <String>[];
   final matchLogs = <Map<String, dynamic>>[];
+  final points = <Map<String, dynamic>>[];
   final requests = <String>[];
 
   ApiClient client() =>
@@ -81,6 +83,46 @@ class FakeBackend {
     if (path.contains('/sessions/') && request.method == 'DELETE') {
       sessions.removeWhere((s) => s['id'] == path.split('/').last);
       return http.Response('', 204);
+    }
+    // Point routes are nested under match logs, so they must match before
+    // the generic /match-logs/ PUT/DELETE handlers below.
+    if (path.contains('/points')) {
+      final parts = path.split('/');
+      if (parts.length == 4 && request.method == 'GET') {
+        // Flat /players/{pid}/points listing.
+        return http.Response(jsonEncode(points), 200);
+      }
+      final logId = parts[4];
+      if (path.endsWith('/points') && request.method == 'GET') {
+        return http.Response(
+          jsonEncode([
+            for (final p in points)
+              if (p['matchLogId'] == logId) p,
+          ]),
+          200,
+        );
+      }
+      if (path.endsWith('/points') && request.method == 'POST') {
+        final body = jsonDecode(request.body) as Map<String, dynamic>;
+        points.removeWhere((p) => p['id'] == body['id']);
+        points.add(body);
+        return http.Response(request.body, 201);
+      }
+      if (path.endsWith('/points/batch')) {
+        for (final body in (jsonDecode(request.body) as List).cast<Map>()) {
+          points.removeWhere((p) => p['id'] == body['id']);
+          points.add(body.cast<String, dynamic>());
+        }
+        return http.Response('{}', 201);
+      }
+      if (path.endsWith('/points') && request.method == 'DELETE') {
+        points.removeWhere((p) => p['matchLogId'] == logId);
+        return http.Response('', 204);
+      }
+      if (request.method == 'DELETE') {
+        points.removeWhere((p) => p['id'] == path.split('/').last);
+        return http.Response('', 204);
+      }
     }
     if (path.endsWith('/match-logs') && request.method == 'GET') {
       return http.Response(jsonEncode(matchLogs), 200);
@@ -338,5 +380,101 @@ void main() {
         expect(await api.hasAnyMatchLogs(), isTrue);
       },
     );
+  });
+
+  group('point records', () {
+    final point = PointRecord(
+      id: 'pt-1',
+      matchLogId: 'ml1',
+      game: 1,
+      indexInGame: 1,
+      server: 'player',
+      winner: 'opponent',
+      playerScore: 0,
+      opponentScore: 1,
+      rallyLength: 9,
+      endingType: 'forcedError',
+      endingShot: 'smash',
+      endingZone: 'midLeft',
+      endingSide: 'player',
+      videoTimestampMs: 61250,
+    );
+
+    test('point record round-trips the wire, shots as a JSON string', () async {
+      final backend = FakeBackend();
+      final api = service(backend);
+      final withShots = point.copyWith(
+        shots: const [
+          {'shotType': 'smash', 'side': 'player', 'timestampMs': 3200},
+        ],
+      );
+
+      await api.insertPointRecord(withShots);
+      final loaded = await api.getPointRecords('ml1');
+
+      expect(loaded.single.toMap(), withShots.toMap());
+      expect(
+        backend.points.single['shots'],
+        isA<String>(),
+        reason: 'shots crosses the wire as an opaque JSON string',
+      );
+      expect(
+        backend.requests,
+        contains('POST /players/p1/match-logs/ml1/points'),
+      );
+    });
+
+    test('batch groups by match log and posts per-log batches', () async {
+      final backend = FakeBackend();
+      final api = service(backend);
+
+      await api.insertPointRecords([
+        point,
+        point.copyWith(id: 'pt-2', indexInGame: 2),
+        point.copyWith(id: 'pt-3', matchLogId: 'ml2'),
+      ]);
+
+      expect(backend.points, hasLength(3));
+      expect(
+        backend.requests,
+        containsAll([
+          'POST /players/p1/match-logs/ml1/points/batch',
+          'POST /players/p1/match-logs/ml2/points/batch',
+        ]),
+      );
+    });
+
+    test('getAllPointRecords reads the flat player points route', () async {
+      final backend = FakeBackend();
+      final api = service(backend);
+      await api.insertPointRecord(point);
+      await api.insertPointRecord(point.copyWith(id: 'pt-2', matchLogId: 'ml2'));
+
+      final all = await api.getAllPointRecords();
+
+      expect(all.map((p) => p.id).toSet(), {'pt-1', 'pt-2'});
+      expect(backend.requests, contains('GET /players/p1/points'));
+    });
+
+    test('delete targets the nested point url and clear empties the log', () async {
+      final backend = FakeBackend();
+      final api = service(backend);
+      await api.insertPointRecord(point);
+      await api.insertPointRecord(point.copyWith(id: 'pt-2', indexInGame: 2));
+
+      await api.deletePointRecord('ml1', 'pt-1');
+      expect(
+        backend.requests,
+        contains('DELETE /players/p1/match-logs/ml1/points/pt-1'),
+      );
+      expect(backend.points.map((p) => p['id']).toList(), ['pt-2']);
+
+      await api.clearPointRecords('ml1');
+      expect(
+        backend.requests,
+        contains('DELETE /players/p1/match-logs/ml1/points'),
+      );
+      expect(backend.points, isEmpty);
+    });
   });
 }
