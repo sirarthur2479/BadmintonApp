@@ -52,6 +52,8 @@ class FakeBackend {
   final tags = <String>[];
   final matchLogs = <Map<String, dynamic>>[];
   final points = <Map<String, dynamic>>[];
+  final briefRequests = <Map<String, dynamic>>[];
+  int briefStatus = 200;
   final requests = <String>[];
 
   ApiClient client() =>
@@ -173,6 +175,17 @@ class FakeBackend {
     if (path.contains('/tournaments/') && request.method == 'DELETE') {
       tournaments.removeWhere((t) => t['id'] == path.split('/').last);
       return http.Response('', 204);
+    }
+    if (path.endsWith('/coach/opponent-brief')) {
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      briefRequests.add(body);
+      if (briefStatus != 200) {
+        return http.Response('{"detail": "Ollama down"}', briefStatus);
+      }
+      return http.Response(
+        jsonEncode({'markdown': '# Tactical brief — ${body['opponent']}'}),
+        200,
+      );
     }
     if (path.endsWith('/tags') && request.method == 'GET') {
       return http.Response(jsonEncode(tags..sort()), 200);
@@ -475,6 +488,33 @@ void main() {
         contains('DELETE /players/p1/match-logs/ml1/points'),
       );
       expect(backend.points, isEmpty);
+    });
+  });
+
+  group('opponent brief', () {
+    test('posts opponent and facts to the coach route and returns markdown',
+        () async {
+      final backend = FakeBackend();
+      final api = service(backend);
+
+      final markdown = await api.requestOpponentBrief('Ken T.', [
+        'Head-to-head vs Ken T.: won 3 of 5 matches.',
+      ]);
+
+      expect(markdown, '# Tactical brief — Ken T.');
+      expect(backend.requests, contains('POST /coach/opponent-brief'));
+      expect(backend.briefRequests.single['opponent'], 'Ken T.');
+      expect(backend.briefRequests.single['facts'], hasLength(1));
+    });
+
+    test('throws ApiException when the brief endpoint 503s', () async {
+      final backend = FakeBackend()..briefStatus = 503;
+      final api = service(backend);
+
+      expect(
+        () => api.requestOpponentBrief('Ken T.', ['fact']),
+        throwsA(isA<ApiException>()),
+      );
     });
   });
 }
