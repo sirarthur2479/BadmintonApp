@@ -54,6 +54,62 @@ def test_list_is_ordered_by_date_desc(client, auth_headers, player):
     assert ids == ["matchlog-new", "matchlog-old"]
 
 
+def test_post_same_id_replaces_row(client, auth_headers, player):
+    client.post(url(player), json=FLUTTER_MATCH_LOG, headers=auth_headers)
+    edited = log_payload(opponent="Ken T. (rematch)", isWin=0)
+    client.post(url(player), json=edited, headers=auth_headers)
+
+    listed = client.get(url(player), headers=auth_headers).json()
+    assert listed == [edited]
+
+
+def test_batch_insert_ignores_duplicates(client, auth_headers, player):
+    client.post(url(player), json=FLUTTER_MATCH_LOG, headers=auth_headers)
+    batch = [
+        log_payload(opponent="SHOULD NOT REPLACE"),  # duplicate id, ignored
+        log_payload(id="matchlog-2", date="2026-07-13T09:00:00.000"),
+    ]
+
+    resp = client.post(url(player, "/batch"), json=batch, headers=auth_headers)
+    listed = client.get(url(player), headers=auth_headers).json()
+
+    assert resp.status_code == 201
+    assert resp.json() == {"received": 2}
+    assert [log["id"] for log in listed] == ["matchlog-2", "matchlog-1"]
+    assert listed[1]["opponent"] == "Ken T."
+
+
+def test_update_replaces_fields(client, auth_headers, player):
+    client.post(url(player), json=FLUTTER_MATCH_LOG, headers=auth_headers)
+    edited = log_payload(performanceNotes="Net play fixed", readinessScore=5)
+
+    resp = client.put(
+        url(player, f"/{FLUTTER_MATCH_LOG['id']}"), json=edited, headers=auth_headers
+    )
+    listed = client.get(url(player), headers=auth_headers).json()
+
+    assert resp.status_code == 200
+    assert listed == [edited]
+
+
+def test_update_missing_log_404s(client, auth_headers, player):
+    resp = client.put(
+        url(player, "/no-such-log"), json=FLUTTER_MATCH_LOG, headers=auth_headers
+    )
+    assert resp.status_code == 404
+
+
+def test_delete_removes_row(client, auth_headers, player):
+    client.post(url(player), json=FLUTTER_MATCH_LOG, headers=auth_headers)
+
+    resp = client.delete(
+        url(player, f"/{FLUTTER_MATCH_LOG['id']}"), headers=auth_headers
+    )
+
+    assert resp.status_code == 204
+    assert client.get(url(player), headers=auth_headers).json() == []
+
+
 def test_any_reports_presence_of_logs(client, auth_headers, player):
     before = client.get(url(player, "/any"), headers=auth_headers).json()
     client.post(url(player), json=FLUTTER_MATCH_LOG, headers=auth_headers)
