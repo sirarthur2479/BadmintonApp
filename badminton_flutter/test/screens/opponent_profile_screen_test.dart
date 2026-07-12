@@ -10,12 +10,14 @@ import 'package:badminton_flutter/providers/point_record_provider.dart';
 import 'package:badminton_flutter/screens/train/opponent_profile_screen.dart';
 import 'package:badminton_flutter/services/database_service.dart';
 
-MatchLog _log(String id, {bool isWin = true, DateTime? date}) => MatchLog(
-  id: id,
-  date: date ?? DateTime(2026, 7, 12),
-  opponent: 'Ken T.',
-  isWin: isWin,
-);
+MatchLog _log(String id, {bool isWin = true, DateTime? date, String? videoRef}) =>
+    MatchLog(
+      id: id,
+      date: date ?? DateTime(2026, 7, 12),
+      opponent: 'Ken T.',
+      isWin: isWin,
+      videoRef: videoRef,
+    );
 
 var _nextPoint = 0;
 PointRecord _point({
@@ -42,6 +44,8 @@ Future<void> _pump(
   WidgetTester tester, {
   required List<MatchLog> logs,
   List<PointRecord> points = const [],
+  bool? webOverride,
+  Widget Function(MatchLog log)? tagScreenBuilder,
 }) async {
   await tester.runAsync(() async {
     await DatabaseService.resetForTests();
@@ -58,10 +62,12 @@ Future<void> _pump(
         ChangeNotifierProvider.value(value: matchLogs),
         ChangeNotifierProvider.value(value: pointRecords),
       ],
-      child: const MaterialApp(
+      child: MaterialApp(
         home: OpponentProfileScreen(
           opponentKey: 'ken t.',
           displayName: 'Ken T.',
+          webOverride: webOverride,
+          tagScreenBuilder: tagScreenBuilder,
         ),
       ),
     ),
@@ -150,5 +156,49 @@ void main() {
 
     expect(find.text('WIN'), findsOneWidget);
     expect(find.text('LOSS'), findsOneWidget);
+  });
+
+  group('unlock card deep link', () {
+    testWidgets('tapping the unlock card opens tagging for the video log', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        logs: [
+          _log('old', date: DateTime(2026, 6, 1)),
+          _log('with-video', videoRef: '/videos/m.mp4'),
+        ],
+        webOverride: false,
+        tagScreenBuilder: (log) =>
+            Scaffold(body: Text('TAG:${log.id}')),
+      );
+
+      await tester.tap(find.textContaining('Tag points from'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('TAG:with-video'), findsOneWidget);
+    });
+
+    testWidgets('unlock card stays passive without a video log', (
+      tester,
+    ) async {
+      await _pump(tester, logs: [_log('a')], webOverride: false);
+
+      expect(
+        find.textContaining('add a video to a match log'),
+        findsOneWidget,
+        reason: 'the card explains the missing step instead of dead-ending',
+      );
+    });
+
+    testWidgets('unlock card stays passive on web', (tester) async {
+      await _pump(
+        tester,
+        logs: [_log('with-video', videoRef: '/videos/m.mp4')],
+        webOverride: true,
+      );
+
+      expect(find.textContaining('Tag points from'), findsNothing);
+    });
   });
 }
