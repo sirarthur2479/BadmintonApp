@@ -305,4 +305,49 @@ void main() {
       reason: 'the game-1 winner serves first in game 2',
     );
   });
+
+  testWidgets('save lives outside the scroll list so no scrolling per point', (
+    tester,
+  ) async {
+    await pumpScreen(tester);
+    await chooseFirstServer(tester);
+
+    expect(find.byKey(const ValueKey('savePointButton')), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(ListView),
+        matching: find.byKey(const ValueKey('savePointButton')),
+      ),
+      findsNothing,
+      reason: 'the save action is pinned, not buried below the chips',
+    );
+  });
+
+  testWidgets('wide screens show video and tag form side by side', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    final env = await pumpScreen(tester);
+    await chooseFirstServer(tester);
+
+    expect(find.byKey(const ValueKey('wideTagLayout')), findsOneWidget);
+
+    // The whole per-point flow works with zero scrolling.
+    await tester.tap(find.byKey(const ValueKey('winnerPlayer')));
+    await tester.pump();
+    await tester.tap(find.text('Winner'));
+    await tester.pump();
+    await savePoint(tester, env.provider, 1);
+    expect(env.provider.points, hasLength(1));
+  });
+
+  testWidgets('narrow screens keep the single-column layout', (tester) async {
+    await pumpScreen(tester);
+    await chooseFirstServer(tester);
+
+    expect(find.byKey(const ValueKey('wideTagLayout')), findsNothing);
+  });
 }
