@@ -1,5 +1,6 @@
 import '../models/match_log.dart';
 import '../models/player.dart';
+import '../models/point_record.dart';
 import '../models/session.dart';
 import '../models/tournament.dart';
 import 'api_client.dart';
@@ -69,6 +70,65 @@ class ApiService {
   Future<bool> hasAnyMatchLogs() async {
     final body = await _client.getJson('$_base/match-logs/any');
     return body['any'] as bool;
+  }
+
+  // ── Point records ────────────────────────────────────────────────────────
+
+  Future<List<PointRecord>> getPointRecords(String matchLogId) async {
+    final body =
+        await _client.getJson('$_base/match-logs/$matchLogId/points') as List;
+    return [
+      for (final item in body)
+        PointRecord.fromMap(item as Map<String, dynamic>),
+    ];
+  }
+
+  Future<List<PointRecord>> getAllPointRecords() async {
+    final body = await _client.getJson('$_base/points') as List;
+    return [
+      for (final item in body)
+        PointRecord.fromMap(item as Map<String, dynamic>),
+    ];
+  }
+
+  Future<void> insertPointRecord(PointRecord point) => _client.postJson(
+    '$_base/match-logs/${point.matchLogId}/points',
+    point.toMap(),
+  );
+
+  Future<void> insertPointRecords(List<PointRecord> points) async {
+    // The backend batch route is per-log; a mixed batch posts one per log.
+    final byLog = <String, List<PointRecord>>{};
+    for (final p in points) {
+      byLog.putIfAbsent(p.matchLogId, () => []).add(p);
+    }
+    for (final entry in byLog.entries) {
+      await _client.postJson('$_base/match-logs/${entry.key}/points/batch', [
+        for (final p in entry.value) p.toMap(),
+      ]);
+    }
+  }
+
+  Future<void> deletePointRecord(String matchLogId, String id) =>
+      _client.delete('$_base/match-logs/$matchLogId/points/$id');
+
+  Future<void> clearPointRecords(String matchLogId) =>
+      _client.delete('$_base/match-logs/$matchLogId/points');
+
+  // ── Opponent brief (account-scoped, not player-scoped) ──────────────────
+
+  /// Sends the pre-worded facts to the tactics engine; returns Markdown.
+  /// Throws [ApiException] (503) when the server can't run the LLM — the
+  /// caller falls back to the metrics-only brief.
+  Future<String> requestOpponentBrief(
+    String opponent,
+    List<String> facts,
+  ) async {
+    final body = await _client.postJson('/coach/opponent-brief', {
+      'opponent': opponent,
+      'facts': facts,
+    });
+    return body['markdown'] as String;
   }
 
   // ── Tournaments ──────────────────────────────────────────────────────────

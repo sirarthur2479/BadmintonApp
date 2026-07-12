@@ -9,7 +9,21 @@ class MatchLogCard extends StatelessWidget {
   final VoidCallback? onTap;
   final VoidCallback? onDelete;
 
-  const MatchLogCard({super.key, required this.log, this.onTap, this.onDelete});
+  /// Opens the point-tagging screen. Only rendered when the log has a
+  /// video; callers leave it null on web (tagging is mobile-only).
+  final VoidCallback? onTagPoints;
+
+  /// Opens the opponent's profile when their name is tapped.
+  final VoidCallback? onOpponentTap;
+
+  const MatchLogCard({
+    super.key,
+    required this.log,
+    this.onTap,
+    this.onDelete,
+    this.onTagPoints,
+    this.onOpponentTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -44,10 +58,19 @@ class MatchLogCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 6),
-              Text(
-                log.scores.isEmpty
-                    ? 'vs ${log.opponent}'
-                    : 'vs ${log.opponent} · ${log.scores}',
+              GestureDetector(
+                onTap: onOpponentTap,
+                child: Text(
+                  log.scores.isEmpty
+                      ? 'vs ${log.opponent}'
+                      : 'vs ${log.opponent} · ${log.scores}',
+                  style: onOpponentTap == null
+                      ? null
+                      : const TextStyle(
+                          decoration: TextDecoration.underline,
+                          decorationColor: AppTheme.textSecondary,
+                        ),
+                ),
               ),
               if (log.eventContext.isNotEmpty)
                 Text(
@@ -64,6 +87,20 @@ class MatchLogCard extends StatelessWidget {
                   StarRating(value: log.readinessScore, size: 14),
                   if (log.videoRef != null) ...[
                     const Spacer(),
+                    if (onTagPoints != null) ...[
+                      GestureDetector(
+                        onTap: onTagPoints,
+                        child: const Tooltip(
+                          message: 'Tag points',
+                          child: Icon(
+                            Icons.sports_score,
+                            size: 20,
+                            color: AppTheme.textSecondary,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
                     const Icon(
                       Icons.videocam_outlined,
                       size: 18,

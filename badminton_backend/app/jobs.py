@@ -138,7 +138,7 @@ def real_pipeline_runner(video_path: str, mode: str, out_dir: str) -> PipelineRe
     try:
         from badminton_track import coach
         from badminton_track.config import load_config
-    except ModuleNotFoundError as exc:
+    except ImportError as exc:
         raise RuntimeError(
             "badminton_track is not installed in the server environment — "
             "install it next to the backend: pip install -e ../badminton_track"

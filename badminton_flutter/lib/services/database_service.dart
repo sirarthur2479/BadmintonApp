@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../models/match_log.dart';
+import '../models/point_record.dart';
 import '../models/session.dart';
 import '../models/tournament.dart';
 import '../models/upload_task.dart';
@@ -33,7 +34,7 @@ class DatabaseService {
 
     return openDatabase(
       path,
-      version: 5,
+      version: 6,
       // sqflite leaves foreign keys OFF by default; without this the
       // matches-table ON DELETE CASCADE is inert.
       onConfigure: (db) => db.execute('PRAGMA foreign_keys = ON'),
@@ -43,6 +44,7 @@ class DatabaseService {
         await _createCustomTagsTable(db);
         await _createUploadQueueTable(db);
         await _createMatchLogsTable(db);
+        await _createPointRecordsTable(db);
         await db.execute('''
           CREATE TABLE tournaments (
             id TEXT PRIMARY KEY,
@@ -136,6 +138,10 @@ class DatabaseService {
       // v5: standalone per-match reflection logs (TASK-037).
       await _createMatchLogsTable(db);
     }
+    if (oldVersion < 6) {
+      // v6: per-rally point records under match logs (TASK-044).
+      await _createPointRecordsTable(db);
+    }
   }
 
   static Future<void> _createUploadQueueTable(DatabaseExecutor db) async {
@@ -176,6 +182,31 @@ class DatabaseService {
         performanceNotes TEXT NOT NULL DEFAULT '',
         keyMoments TEXT NOT NULL DEFAULT '',
         videoRef TEXT
+      )
+    ''');
+  }
+
+  /// Schema v6: one row per tagged rally (TASK-044). Like match_logs, no
+  /// playerId column — the backend scopes by player via the route path.
+  static Future<void> _createPointRecordsTable(DatabaseExecutor db) async {
+    await db.execute('''
+      CREATE TABLE point_records (
+        id TEXT PRIMARY KEY,
+        matchLogId TEXT NOT NULL,
+        game INTEGER NOT NULL,
+        indexInGame INTEGER NOT NULL,
+        server TEXT NOT NULL,
+        winner TEXT NOT NULL,
+        playerScore INTEGER NOT NULL,
+        opponentScore INTEGER NOT NULL,
+        rallyLength INTEGER,
+        endingType TEXT NOT NULL,
+        endingShot TEXT,
+        endingZone TEXT,
+        endingSide TEXT,
+        videoTimestampMs INTEGER,
+        shots TEXT NOT NULL DEFAULT '[]',
+        FOREIGN KEY (matchLogId) REFERENCES match_logs (id) ON DELETE CASCADE
       )
     ''');
   }
@@ -424,5 +455,71 @@ class DatabaseService {
       'SELECT COUNT(*) as count FROM match_logs',
     );
     return (result.first['count'] as int) > 0;
+  }
+
+  // ── Point records ────────────────────────────────────────────────────────
+
+  static Future<List<PointRecord>> getPointRecords(String matchLogId) async {
+    if (kIsWeb) return webApi!.getPointRecords(matchLogId);
+    final db = await _database;
+    final maps = await db.query(
+      'point_records',
+      where: 'matchLogId = ?',
+      whereArgs: [matchLogId],
+      orderBy: 'game, indexInGame',
+    );
+    return maps.map(PointRecord.fromMap).toList();
+  }
+
+  static Future<List<PointRecord>> getAllPointRecords() async {
+    if (kIsWeb) return webApi!.getAllPointRecords();
+    final db = await _database;
+    final maps = await db.query(
+      'point_records',
+      orderBy: 'matchLogId, game, indexInGame',
+    );
+    return maps.map(PointRecord.fromMap).toList();
+  }
+
+  static Future<void> insertPointRecord(PointRecord point) async {
+    if (kIsWeb) return webApi!.insertPointRecord(point);
+    final db = await _database;
+    await db.insert(
+      'point_records',
+      point.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  static Future<void> insertPointRecords(List<PointRecord> points) async {
+    if (kIsWeb) return webApi!.insertPointRecords(points);
+    final db = await _database;
+    final batch = db.batch();
+    for (final p in points) {
+      // Upsert, unlike the logs' IGNORE batches: the tagging screen saves
+      // whole re-taggable sets.
+      batch.insert(
+        'point_records',
+        p.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+    await batch.commit(noResult: true);
+  }
+
+  static Future<void> deletePointRecord(String matchLogId, String id) async {
+    if (kIsWeb) return webApi!.deletePointRecord(matchLogId, id);
+    final db = await _database;
+    await db.delete('point_records', where: 'id = ?', whereArgs: [id]);
+  }
+
+  static Future<void> clearPointRecords(String matchLogId) async {
+    if (kIsWeb) return webApi!.clearPointRecords(matchLogId);
+    final db = await _database;
+    await db.delete(
+      'point_records',
+      where: 'matchLogId = ?',
+      whereArgs: [matchLogId],
+    );
   }
 }

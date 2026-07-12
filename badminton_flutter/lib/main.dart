@@ -7,6 +7,7 @@ import 'providers/analysis_server_provider.dart';
 import 'providers/analysis_status_provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/match_log_provider.dart';
+import 'providers/point_record_provider.dart';
 import 'providers/player_provider.dart';
 import 'providers/session_provider.dart';
 import 'providers/tournament_provider.dart';
@@ -64,6 +65,7 @@ Future<void> main() async {
         ChangeNotifierProvider(create: (_) => TournamentProvider()),
         ChangeNotifierProvider(create: (_) => ProfileProvider()),
         ChangeNotifierProvider(create: (_) => MatchLogProvider()),
+        ChangeNotifierProvider(create: (_) => PointRecordProvider()),
         ChangeNotifierProvider.value(value: analysisServer),
         ChangeNotifierProvider.value(value: uploadQueue),
         if (analysisStatus != null)

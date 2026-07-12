@@ -15,9 +15,11 @@ from .jobs import (
 )
 from .models import AccountOut
 from .routers import auth as auth_router
+from .routers import coach as coach_router
 from .routers import jobs as jobs_router
 from .routers import match_logs as match_logs_router
 from .routers import players as players_router
+from .routers import point_records as point_records_router
 from .routers import sessions as sessions_router
 from .routers import tags as tags_router
 from .routers import tournaments as tournaments_router
@@ -53,10 +55,13 @@ def create_app(
     app.include_router(players_router.router, prefix="/api/v1")
     app.include_router(sessions_router.router, prefix="/api/v1")
     app.include_router(match_logs_router.router, prefix="/api/v1")
+    app.include_router(point_records_router.router, prefix="/api/v1")
+    app.include_router(point_records_router.flat_router, prefix="/api/v1")
     app.include_router(tournaments_router.router, prefix="/api/v1")
     app.include_router(tags_router.router, prefix="/api/v1")
     app.include_router(uploads_router.router, prefix="/api/v1")
     app.include_router(jobs_router.router, prefix="/api/v1")
+    app.include_router(coach_router.router, prefix="/api/v1")
 
     @app.get("/api/v1/me", response_model=AccountOut)
     def me(

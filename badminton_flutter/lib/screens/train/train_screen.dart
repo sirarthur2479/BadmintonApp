@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'log_match_screen.dart';
 import 'log_session_screen.dart';
 import 'match_logs_tab.dart';
+import 'opponents_screen.dart';
 import 'session_history_screen.dart';
 
 /// The Train tab: Sessions (training history) and Match Logs side by side.
@@ -40,8 +41,17 @@ class _TrainScreenState extends State<TrainScreen>
         actions: [
           if (onSessionsTab)
             const SessionExportAction()
-          else
+          else ...[
+            IconButton(
+              tooltip: 'Opponents',
+              icon: const Icon(Icons.groups_outlined),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const OpponentsScreen()),
+              ),
+            ),
             const MatchLogExportAction(),
+          ],
         ],
         bottom: TabBar(
           controller: _tabs,

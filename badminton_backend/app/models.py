@@ -1,5 +1,7 @@
 """Pydantic request/response models."""
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -57,6 +59,30 @@ class MatchLog(BaseModel):
     performanceNotes: str = ""
     keyMoments: str = ""
     videoRef: str | None = None
+
+
+class PointRecord(BaseModel):
+    """Mirrors Flutter PointRecord.toMap() (TASK-042): one rally of a match,
+    point-level but shot-ready. shots is a JSON-encoded string stored
+    opaquely, never re-encoded. matchLogId also arrives via the route path
+    on write, but stays in the payload so records are self-contained.
+    """
+
+    id: str = Field(min_length=1)
+    matchLogId: str = Field(min_length=1)
+    game: int = Field(ge=1)
+    indexInGame: int = Field(ge=1)
+    server: Literal["player", "opponent"]
+    winner: Literal["player", "opponent"]
+    playerScore: int = Field(ge=0)
+    opponentScore: int = Field(ge=0)
+    rallyLength: int | None = None
+    endingType: Literal["winner", "forcedError", "unforcedError"]
+    endingShot: str | None = None
+    endingZone: str | None = None
+    endingSide: Literal["player", "opponent"] | None = None
+    videoTimestampMs: int | None = None
+    shots: str = "[]"
 
 
 class Match(BaseModel):

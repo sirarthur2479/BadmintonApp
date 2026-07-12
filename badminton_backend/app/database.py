@@ -75,6 +75,23 @@ CREATE TABLE IF NOT EXISTS match_logs (
     keyMoments TEXT NOT NULL DEFAULT '',
     videoRef TEXT
 );
+CREATE TABLE IF NOT EXISTS point_records (
+    id TEXT PRIMARY KEY,
+    matchLogId TEXT NOT NULL REFERENCES match_logs (id) ON DELETE CASCADE,
+    game INTEGER NOT NULL,
+    indexInGame INTEGER NOT NULL,
+    server TEXT NOT NULL,
+    winner TEXT NOT NULL,
+    playerScore INTEGER NOT NULL,
+    opponentScore INTEGER NOT NULL,
+    rallyLength INTEGER,
+    endingType TEXT NOT NULL,
+    endingShot TEXT,
+    endingZone TEXT,
+    endingSide TEXT,
+    videoTimestampMs INTEGER,
+    shots TEXT NOT NULL DEFAULT '[]'
+);
 CREATE TABLE IF NOT EXISTS uploads (
     id TEXT PRIMARY KEY,
     accountId TEXT NOT NULL REFERENCES accounts (id) ON DELETE CASCADE,
