@@ -1,7 +1,9 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../../models/match_log.dart';
 import '../../models/point_record.dart';
 import '../../providers/match_log_provider.dart';
 import '../../providers/point_record_provider.dart';
@@ -13,6 +15,7 @@ import '../../utils/opponent_stats.dart';
 import '../../widgets/match_log_card.dart';
 import 'log_match_screen.dart';
 import 'opponent_brief_screen.dart';
+import 'tag_points_screen.dart';
 
 typedef BriefRequester =
     Future<String> Function(String opponent, List<String> facts);
@@ -27,6 +30,8 @@ class OpponentProfileScreen extends StatefulWidget {
     required this.opponentKey,
     required this.displayName,
     this.briefRequester,
+    this.webOverride,
+    this.tagScreenBuilder,
   });
 
   final String opponentKey;
@@ -36,6 +41,10 @@ class OpponentProfileScreen extends StatefulWidget {
   /// mobile through the LAN analysis-server client; anything missing or
   /// failing falls back to the metrics-only brief.
   final BriefRequester? briefRequester;
+
+  /// Test seams for the unlock deep link (tagging is off-web only).
+  final bool? webOverride;
+  final Widget Function(MatchLog log)? tagScreenBuilder;
 
   @override
   State<OpponentProfileScreen> createState() => _OpponentProfileScreenState();
@@ -90,6 +99,74 @@ class _OpponentProfileScreenState extends State<OpponentProfileScreen> {
           displayName: widget.displayName,
           markdown: markdown,
           aiUnavailable: aiUnavailable,
+        ),
+      ),
+    );
+  }
+
+  /// The empty state doubles as the funnel: with a video-bearing log it is
+  /// a one-tap deep link into the tagging screen; otherwise it names the
+  /// missing step. On web (no tagging) it only explains where stats come
+  /// from.
+  Widget _unlockCard(List<MatchLog> ownLogs) {
+    final isWeb = widget.webOverride ?? kIsWeb;
+    MatchLog? videoLog;
+    for (final log in ownLogs) {
+      if (log.videoRef != null) {
+        videoLog = log;
+        break;
+      }
+    }
+
+    if (isWeb) {
+      return const Card(
+        child: Padding(
+          padding: EdgeInsets.all(14),
+          child: Text(
+            'Point stats unlock once rallies are tagged in the mobile or '
+            'laptop app.',
+            style: TextStyle(color: AppTheme.textSecondary),
+          ),
+        ),
+      );
+    }
+    if (videoLog == null) {
+      return const Card(
+        child: Padding(
+          padding: EdgeInsets.all(14),
+          child: Text(
+            'Tag points from a match video to unlock serve, rally and shot '
+            'breakdowns — add a video to a match log first.',
+            style: TextStyle(color: AppTheme.textSecondary),
+          ),
+        ),
+      );
+    }
+    final log = videoLog;
+    return Card(
+      child: InkWell(
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) =>
+                widget.tagScreenBuilder?.call(log) ??
+                TagPointsScreen(log: log),
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Tag points from the '
+                  '${DateFormat('d MMM').format(log.date)} match video to '
+                  'unlock serve, rally and shot breakdowns.',
+                ),
+              ),
+              const Icon(Icons.chevron_right, color: AppTheme.textSecondary),
+            ],
+          ),
         ),
       ),
     );
@@ -183,17 +260,7 @@ class _OpponentProfileScreenState extends State<OpponentProfileScreen> {
               label: const Text('Tactical brief'),
             ),
           ),
-          if (!tagged)
-            const Card(
-              child: Padding(
-                padding: EdgeInsets.all(14),
-                child: Text(
-                  'Tag points from a match video to unlock serve, rally and '
-                  'shot breakdowns.',
-                  style: TextStyle(color: AppTheme.textSecondary),
-                ),
-              ),
-            ),
+          if (!tagged) _unlockCard(ownLogs),
           if (tagged) ...[
             _section('Serve vs receive', [
               if (stats.serveWinRate != null)
