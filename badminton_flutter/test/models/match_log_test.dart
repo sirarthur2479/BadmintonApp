@@ -99,4 +99,47 @@ void main() {
       expect(log.videoRef, isNull);
     });
   });
+
+  group('MatchLog copyWith', () {
+    final base = MatchLog(
+      id: 'log-1',
+      date: DateTime(2026, 7, 12),
+      opponent: 'Ken T.',
+      eventContext: 'Practice',
+      scores: '21-10, 21-12',
+      isWin: true,
+      gameplan: 'Serve variation',
+      readinessScore: 4,
+      performanceNotes: 'Solid',
+      keyMoments: 'None',
+      videoRef: '/videos/practice.mp4',
+    );
+
+    test('copyWith replaces only the given fields', () {
+      final edited = base.copyWith(
+        opponent: 'Mia W.',
+        isWin: false,
+        readinessScore: 2,
+      );
+
+      expect(edited.opponent, 'Mia W.');
+      expect(edited.isWin, false);
+      expect(edited.readinessScore, 2);
+      // Everything else is untouched.
+      expect(edited.id, base.id);
+      expect(edited.date, base.date);
+      expect(edited.eventContext, base.eventContext);
+      expect(edited.scores, base.scores);
+      expect(edited.gameplan, base.gameplan);
+      expect(edited.performanceNotes, base.performanceNotes);
+      expect(edited.keyMoments, base.keyMoments);
+      expect(edited.videoRef, base.videoRef);
+    });
+
+    test('copyWith with no arguments is an identical copy', () {
+      final copy = base.copyWith();
+
+      expect(copy.toMap(), base.toMap());
+    });
+  });
 }
