@@ -74,3 +74,18 @@ List<String> opponentFacts(String displayName, OpponentStats stats) {
   }
   return facts;
 }
+
+/// The standalone deterministic brief: the offline fallback when no
+/// server/Ollama is reachable, and the facts appendix of the LLM brief.
+String metricsOnlyBrief(String displayName, OpponentStats stats) {
+  final buffer = StringBuffer()
+    ..writeln('# Opponent brief — $displayName')
+    ..writeln();
+  for (final fact in opponentFacts(displayName, stats)) {
+    buffer.writeln('- $fact');
+  }
+  buffer
+    ..writeln()
+    ..writeln('_This brief is metrics only (no AI narrative was generated)._');
+  return buffer.toString();
+}
