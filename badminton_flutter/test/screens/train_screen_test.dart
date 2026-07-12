@@ -97,8 +97,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(MatchLogCard), findsNWidgets(2));
-    final samY = tester.getTopLeft(find.text('Sam L.')).dy;
-    final miaY = tester.getTopLeft(find.text('Mia W.')).dy;
+    final samY = tester.getTopLeft(find.textContaining('Sam L.')).dy;
+    final miaY = tester.getTopLeft(find.textContaining('Mia W.')).dy;
     expect(samY, lessThan(miaY), reason: 'newest log renders first');
   });
 
