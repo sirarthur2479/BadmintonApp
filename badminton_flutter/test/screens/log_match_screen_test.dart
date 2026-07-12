@@ -26,13 +26,37 @@ Future<MatchLogProvider> pumpForm(
   return provider;
 }
 
+Future<void> enterField(
+  WidgetTester tester,
+  String key,
+  String text,
+) async {
+  await tester.scrollUntilVisible(
+    find.byKey(ValueKey(key)),
+    200,
+    scrollable: find.byType(Scrollable).first,
+  );
+  await tester.enterText(find.byKey(ValueKey(key)), text);
+}
+
 Future<void> saveForm(WidgetTester tester, MatchLogProvider provider) async {
-  await tester.ensureVisible(find.byKey(const ValueKey('saveMatchButton')));
+  await tester.scrollUntilVisible(
+    find.byKey(const ValueKey('saveMatchButton')),
+    200,
+    scrollable: find.byType(Scrollable).first,
+  );
+  // scrollUntilVisible stops at partial visibility; nudge the list so the
+  // button's center is actually inside the viewport.
+  await tester.drag(find.byType(ListView), const Offset(0, -200));
+  await tester.pumpAndSettle();
   await tester.tap(find.byKey(const ValueKey('saveMatchButton')));
-  // The save path does real sqflite work.
-  await tester.runAsync(() => Future<void>.delayed(
-        const Duration(milliseconds: 50),
-      ));
+  await tester.pump();
+  // The save path does real sqflite work; give it real time.
+  await tester.runAsync(() async {
+    for (var i = 0; i < 200 && provider.matchLogs.isEmpty; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
+  });
   await tester.pumpAndSettle();
 }
 
@@ -48,30 +72,12 @@ void main() {
   ) async {
     final provider = await pumpForm(tester);
 
-    await tester.enterText(
-      find.byKey(const ValueKey('opponentField')),
-      'Ken T.',
-    );
-    await tester.enterText(
-      find.byKey(const ValueKey('eventContextField')),
-      'League round 3',
-    );
-    await tester.enterText(
-      find.byKey(const ValueKey('scoresField')),
-      '21-15, 21-17',
-    );
-    await tester.enterText(
-      find.byKey(const ValueKey('gameplanField')),
-      'Attack the backhand',
-    );
-    await tester.enterText(
-      find.byKey(const ValueKey('performanceNotesField')),
-      'Smash worked',
-    );
-    await tester.enterText(
-      find.byKey(const ValueKey('keyMomentsField')),
-      'Comeback in game 2',
-    );
+    await enterField(tester, 'opponentField', 'Ken T.');
+    await enterField(tester, 'eventContextField', 'League round 3');
+    await enterField(tester, 'scoresField', '21-15, 21-17');
+    await enterField(tester, 'gameplanField', 'Attack the backhand');
+    await enterField(tester, 'performanceNotesField', 'Smash worked');
+    await enterField(tester, 'keyMomentsField', 'Comeback in game 2');
     await saveForm(tester, provider);
 
     final saved = provider.matchLogs.single;
@@ -101,10 +107,7 @@ void main() {
   ) async {
     final provider = await pumpForm(tester);
 
-    await tester.enterText(
-      find.byKey(const ValueKey('opponentField')),
-      'Mia W.',
-    );
+    await enterField(tester, 'opponentField', 'Mia W.');
     await tester.tap(find.text('Loss'));
     await tester.pump();
     // Readiness stars: tap the 5th star of the readiness rating.
