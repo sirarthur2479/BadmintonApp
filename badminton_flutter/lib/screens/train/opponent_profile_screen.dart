@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -5,9 +6,16 @@ import '../../models/point_record.dart';
 import '../../providers/match_log_provider.dart';
 import '../../providers/point_record_provider.dart';
 import '../../theme/app_theme.dart';
+import '../../providers/analysis_server_provider.dart';
+import '../../services/database_service.dart';
+import '../../utils/opponent_facts.dart';
 import '../../utils/opponent_stats.dart';
 import '../../widgets/match_log_card.dart';
 import 'log_match_screen.dart';
+import 'opponent_brief_screen.dart';
+
+typedef BriefRequester =
+    Future<String> Function(String opponent, List<String> facts);
 
 /// Per-opponent tactical profile (pool #10): head-to-head from the match
 /// logs, point-derived stats from whatever rallies have been tagged, and
@@ -18,10 +26,16 @@ class OpponentProfileScreen extends StatefulWidget {
     super.key,
     required this.opponentKey,
     required this.displayName,
+    this.briefRequester,
   });
 
   final String opponentKey;
   final String displayName;
+
+  /// Test seam. Production default: web goes through the normal ApiService,
+  /// mobile through the LAN analysis-server client; anything missing or
+  /// failing falls back to the metrics-only brief.
+  final BriefRequester? briefRequester;
 
   @override
   State<OpponentProfileScreen> createState() => _OpponentProfileScreenState();
@@ -39,6 +53,47 @@ class _OpponentProfileScreenState extends State<OpponentProfileScreen> {
   }
 
   String _percent(double rate) => '${(rate * 100).round()}%';
+
+  bool _briefBusy = false;
+
+  Future<String> _defaultRequester(String opponent, List<String> facts) {
+    if (kIsWeb) {
+      return DatabaseService.webApi!.requestOpponentBrief(opponent, facts);
+    }
+    // Throws when the provider isn't in scope or the server isn't set up —
+    // both land on the metrics-only fallback.
+    return context.read<AnalysisServerProvider>().requestOpponentBrief(
+      opponent,
+      facts,
+    );
+  }
+
+  Future<void> _openBrief(OpponentStats stats) async {
+    setState(() => _briefBusy = true);
+    final facts = opponentFacts(widget.displayName, stats);
+    String markdown;
+    var aiUnavailable = false;
+    try {
+      final requester = widget.briefRequester ?? _defaultRequester;
+      markdown = await requester(widget.displayName, facts);
+    } catch (_) {
+      // The happy fallback path: no dialog, just the deterministic brief.
+      markdown = metricsOnlyBrief(widget.displayName, stats);
+      aiUnavailable = true;
+    }
+    if (!mounted) return;
+    setState(() => _briefBusy = false);
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => OpponentBriefScreen(
+          displayName: widget.displayName,
+          markdown: markdown,
+          aiUnavailable: aiUnavailable,
+        ),
+      ),
+    );
+  }
 
   Widget _section(String title, List<Widget> children) {
     return Card(
@@ -114,6 +169,20 @@ class _OpponentProfileScreenState extends State<OpponentProfileScreen> {
                     '${stats.taggedPoints} points tagged',
               ),
           ]),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: ElevatedButton.icon(
+              onPressed: _briefBusy ? null : () => _openBrief(stats),
+              icon: _briefBusy
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.psychology_outlined),
+              label: const Text('Tactical brief'),
+            ),
+          ),
           if (!tagged)
             const Card(
               child: Padding(

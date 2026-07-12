@@ -106,7 +106,11 @@ void main() {
     await _tapBrief(tester);
 
     expect(find.byType(OpponentBriefScreen), findsOneWidget);
-    expect(find.textContaining('metrics only'), findsOneWidget);
+    expect(
+      find.textContaining('no AI narrative was generated'),
+      findsOneWidget,
+      reason: 'the body is the deterministic metrics-only brief',
+    );
     expect(
       find.textContaining('AI narrative unavailable'),
       findsOneWidget,
