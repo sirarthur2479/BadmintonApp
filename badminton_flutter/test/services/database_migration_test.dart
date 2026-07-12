@@ -3,6 +3,7 @@ import 'package:path/path.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'package:badminton_flutter/models/match_log.dart';
+import 'package:badminton_flutter/models/point_record.dart';
 import 'package:badminton_flutter/models/session.dart';
 import 'package:badminton_flutter/services/database_service.dart';
 
@@ -153,4 +154,93 @@ void main() {
       );
     },
   );
+
+  test(
+    'v1-chain migration creates the point_records table (v6)',
+    () async {
+      await DatabaseService.insertMatchLog(
+        MatchLog(
+          id: 'post-migration-log',
+          date: DateTime(2026, 7, 12),
+          opponent: 'Ken T.',
+          isWin: true,
+        ),
+      );
+
+      await DatabaseService.insertPointRecord(
+        PointRecord(
+          id: 'post-migration-pt',
+          matchLogId: 'post-migration-log',
+          game: 1,
+          indexInGame: 1,
+          server: 'player',
+          winner: 'player',
+          playerScore: 1,
+          opponentScore: 0,
+          endingType: 'winner',
+        ),
+      );
+
+      final points = await DatabaseService.getPointRecords(
+        'post-migration-log',
+      );
+      expect(points.single.id, 'post-migration-pt');
+    },
+  );
+
+  test('a real v5 database upgrades to v6 preserving match logs', () async {
+    // Rebuild the fixture as v5 shipped it (schema v5 = current tables minus
+    // point_records), seed a log, then reopen through DatabaseService.
+    await DatabaseService.resetForTests();
+    final path = join(await getDatabasesPath(), DatabaseService.dbName);
+    final v5 = await databaseFactory.openDatabase(
+      path,
+      options: OpenDatabaseOptions(
+        version: 5,
+        onCreate: (db, version) async {
+          await db.execute('''
+            CREATE TABLE match_logs (
+              id TEXT PRIMARY KEY,
+              date TEXT NOT NULL,
+              opponent TEXT NOT NULL,
+              eventContext TEXT NOT NULL DEFAULT '',
+              scores TEXT NOT NULL DEFAULT '',
+              isWin INTEGER NOT NULL,
+              gameplan TEXT NOT NULL DEFAULT '',
+              readinessScore INTEGER NOT NULL DEFAULT 3,
+              performanceNotes TEXT NOT NULL DEFAULT '',
+              keyMoments TEXT NOT NULL DEFAULT '',
+              videoRef TEXT
+            )
+          ''');
+        },
+      ),
+    );
+    await v5.insert('match_logs', {
+      'id': 'v5-log',
+      'date': DateTime(2026, 7, 10).toIso8601String(),
+      'opponent': 'Mia W.',
+      'isWin': 0,
+    });
+    await v5.close();
+
+    final logs = await DatabaseService.getMatchLogs();
+    expect(logs.single.id, 'v5-log');
+
+    // And the new table exists and is usable.
+    await DatabaseService.insertPointRecord(
+      PointRecord(
+        id: 'v6-pt',
+        matchLogId: 'v5-log',
+        game: 1,
+        indexInGame: 1,
+        server: 'opponent',
+        winner: 'opponent',
+        playerScore: 0,
+        opponentScore: 1,
+        endingType: 'unforcedError',
+      ),
+    );
+    expect((await DatabaseService.getPointRecords('v5-log')).length, 1);
+  });
 }
