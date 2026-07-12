@@ -1,5 +1,11 @@
 # Updates
 
+## 2026-07-12
+
+| Task | Summary |
+|---|---|
+| TASK-035 | `MatchLog` model (match-log use-case, pool #9): standalone per-match reflection record — date/opponent/eventContext/scores/isWin plus pre-match gameplan + readiness (1–5) and post-match performanceNotes/keyMoments/videoRef — with `copyWith`/`toMap`/`fromMap` following the `TrainingSession` conventions (camelCase keys, isWin 1/0, ISO date, defaults for missing optional keys). Field contract for TASK-036..041. 241/241 flutter tests green, analyzer clean |
+
 ## 2026-07-08
 
 | Task | Summary |
