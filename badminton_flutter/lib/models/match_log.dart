@@ -44,6 +44,34 @@ class MatchLog {
     this.videoRef,
   });
 
+  MatchLog copyWith({
+    String? id,
+    DateTime? date,
+    String? opponent,
+    String? eventContext,
+    String? scores,
+    bool? isWin,
+    String? gameplan,
+    int? readinessScore,
+    String? performanceNotes,
+    String? keyMoments,
+    String? videoRef,
+  }) {
+    return MatchLog(
+      id: id ?? this.id,
+      date: date ?? this.date,
+      opponent: opponent ?? this.opponent,
+      eventContext: eventContext ?? this.eventContext,
+      scores: scores ?? this.scores,
+      isWin: isWin ?? this.isWin,
+      gameplan: gameplan ?? this.gameplan,
+      readinessScore: readinessScore ?? this.readinessScore,
+      performanceNotes: performanceNotes ?? this.performanceNotes,
+      keyMoments: keyMoments ?? this.keyMoments,
+      videoRef: videoRef ?? this.videoRef,
+    );
+  }
+
   Map<String, dynamic> toMap() {
     return {
       'id': id,
