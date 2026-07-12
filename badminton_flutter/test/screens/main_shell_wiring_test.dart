@@ -34,20 +34,30 @@ void main() {
       ),
     );
     final matchLogs = MatchLogProvider();
+    // .value providers everywhere: the test owns their lifetime, so loads
+    // that complete during teardown can't hit a disposed notifier.
+    final sessions = SessionProvider();
+    final tournaments = TournamentProvider();
+    final profile = ProfileProvider();
 
     await tester.pumpWidget(
       MultiProvider(
         providers: [
-          ChangeNotifierProvider(create: (_) => SessionProvider()),
-          ChangeNotifierProvider(create: (_) => TournamentProvider()),
-          ChangeNotifierProvider(create: (_) => ProfileProvider()),
+          ChangeNotifierProvider.value(value: sessions),
+          ChangeNotifierProvider.value(value: tournaments),
+          ChangeNotifierProvider.value(value: profile),
           ChangeNotifierProvider.value(value: matchLogs),
         ],
         child: const MaterialApp(home: MainShell()),
       ),
     );
-    // Let initState's post-frame loads run to completion.
-    await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+    // Let initState's post-frame loads (real sqflite async) run to
+    // completion.
+    await tester.runAsync(() async {
+      for (var i = 0; i < 50 && matchLogs.matchLogs.isEmpty; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+    });
     await tester.pump();
 
     expect(

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'theme/app_theme.dart';
 import 'providers/auth_provider.dart';
+import 'providers/match_log_provider.dart';
 import 'providers/session_provider.dart';
 import 'providers/tournament_provider.dart';
 import 'providers/profile_provider.dart';
@@ -97,6 +98,7 @@ class _MainShellState extends State<MainShell> {
       context.read<SessionProvider>().loadSessions();
       context.read<TournamentProvider>().loadTournaments();
       context.read<ProfileProvider>().loadProfile();
+      context.read<MatchLogProvider>().loadMatchLogs();
     });
   }
 
