@@ -22,7 +22,7 @@ PointRecord _point(
 
 /// Builds a sequence of points from winner initials, deriving scores/games
 /// the way the tagging screen would.
-List<PointRecord> _sequence(String winners, {String firstServer = 'player'}) {
+List<PointRecord> _sequence(String winners) {
   final points = <PointRecord>[];
   for (final ch in winners.split('')) {
     final winner = ch == 'p' ? 'player' : 'opponent';
