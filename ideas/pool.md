@@ -18,6 +18,7 @@ this order unless the owner overrides.
 | 7 | Flutter app quality-of-life batch | Anytime filler; no dependencies, lower value per item |
 | 8 | Audio session logging (local STT for spoken notes) | Anytime filler; no dependencies, small/self-contained, reuses a proven external pattern |
 | 9 | Match-log feature (per-match reflection log) | Independent branch work recovered during a rebase onto main; needs rework to sit on top of the multi-player architecture (#5) before it can land |
+| 10 | Match-point analysis & opponent profiling | The owner's real post-game workflow (2026-07-12 first real-usage review); staged so phase 1 needs no new CV research and replaces the manual routine immediately |
 
 ---
 
@@ -167,3 +168,50 @@ this order unless the owner overrides.
   wire `MatchLogProvider` to construct via `ApiService` on web like
   `SessionProvider` does, and merge `TrainScreen` into `MainShell` in place of
   `SessionHistoryScreen` without breaking main's player-select routing.
+
+## 10. Match-point analysis & opponent profiling — replace the manual post-game review
+
+- **Added:** 2026-07-12
+- **Status:**
+- **Source:** owner, first real-usage review of the video analysis feature. The
+  drill-benchmark workflow (#4/#6) forces training to fit the app; the owner's
+  actual routine is the reverse — after every game they manually review 1–2
+  minute clips of individual points/interactions to discuss the player's
+  mistakes and the opponent's habits. This idea automates that routine.
+- **Depends on:** #4 (pipeline) and #6 (upload/job loop), both done. Strong
+  synergy with #8 (local STT — spoken per-point notes) and the per-venue
+  calibration friction found in the same review (tap-4-corners on a frame in
+  the app would solve both).
+- **Architecture principle (carried over from #4):** CV extracts verifiable
+  facts; the local LLM reasons over facts, never raw video. Each phase widens
+  the fact vocabulary.
+- **Phase 1 — human-in-the-loop, no new CV research:**
+  - Track BOTH players (homography + feet projection already work for the far
+    half): coverage, speed, recovery for player and opponent → opponent
+    movement habits (slow corners, camping position, late-game fade) and the
+    player's positional mistakes (out of position at rally end, short
+    recovery).
+  - Per-point clip upload (fits the existing queue; ~100–300 MB) with a
+    one-tap tag (won/lost + reason category + opponent) and/or a spoken note
+    transcribed locally (#8).
+  - LLM merges tags/notes + two-player telemetry into a post-game report and
+    a rolling **opponent profile** (new backend entity: accumulated stats +
+    LLM-refreshed scouting card) plus the player's own profile.
+- **Phase 2 — shuttle tracking (the big unlock, real research risk):**
+  badminton-specific open-source prior art exists (TrackNet V2/V3, CNN
+  heatmap tracker trained on rear-elevated broadcast footage; PyTorch, runs
+  on Apple Silicon; amateur-footage domain gap may need fine-tuning →
+  `/research` topic). Trajectory gives hit detection (direction reversals),
+  coarse shot-type heuristics (smash/clear/drop/net from arc), rally tempo,
+  and placement — respecting the court-plane invariant: only landing points
+  (floor) and hitter's-feet-at-hit-time are projected, never mid-air shuttle
+  positions. Output: a symbolic rally transcript the 8B model reasons over
+  (serve placement distribution, patterns preceding lost points, weak wing).
+  Phase 2 progressively automates what the human tags in phase 1.
+- **Explicit non-goals (out of local reach):** automatic line calls, certain
+  who-won-the-point, stroke-fault detection from the rear view, local VLMs
+  watching clips directly (unreliable for fine sports judgment — later
+  experiment at most).
+- **Open questions:** opponent identity entry UX (name per clip? pick list?);
+  where the rolling profiles live in the app UI; whether phase 1 tags are
+  per-clip or per-session; retention policy for many small clips.
