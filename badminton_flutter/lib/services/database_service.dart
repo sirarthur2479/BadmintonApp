@@ -368,12 +368,14 @@ class DatabaseService {
   // ── Match logs ───────────────────────────────────────────────────────────
 
   static Future<List<MatchLog>> getMatchLogs() async {
+    if (kIsWeb) return webApi!.getMatchLogs();
     final db = await _database;
     final maps = await db.query('match_logs', orderBy: 'date DESC');
     return maps.map(MatchLog.fromMap).toList();
   }
 
   static Future<void> insertMatchLog(MatchLog log) async {
+    if (kIsWeb) return webApi!.insertMatchLog(log);
     final db = await _database;
     await db.insert(
       'match_logs',
@@ -383,6 +385,7 @@ class DatabaseService {
   }
 
   static Future<void> insertMatchLogs(List<MatchLog> logs) async {
+    if (kIsWeb) return webApi!.insertMatchLogs(logs);
     final db = await _database;
     final batch = db.batch();
     for (final log in logs) {
@@ -396,6 +399,7 @@ class DatabaseService {
   }
 
   static Future<void> updateMatchLog(MatchLog log) async {
+    if (kIsWeb) return webApi!.updateMatchLog(log);
     final db = await _database;
     await db.update(
       'match_logs',
@@ -406,11 +410,13 @@ class DatabaseService {
   }
 
   static Future<void> deleteMatchLog(String id) async {
+    if (kIsWeb) return webApi!.deleteMatchLog(id);
     final db = await _database;
     await db.delete('match_logs', where: 'id = ?', whereArgs: [id]);
   }
 
   static Future<bool> hasAnyMatchLogs() async {
+    if (kIsWeb) return webApi!.hasAnyMatchLogs();
     final db = await _database;
     final result =
         await db.rawQuery('SELECT COUNT(*) as count FROM match_logs');

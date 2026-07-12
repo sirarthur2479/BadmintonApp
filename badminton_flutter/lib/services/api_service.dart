@@ -1,3 +1,4 @@
+import '../models/match_log.dart';
 import '../models/player.dart';
 import '../models/session.dart';
 import '../models/tournament.dart';
@@ -42,6 +43,34 @@ class ApiService {
 
   Future<bool> hasAnySessions() async {
     final body = await _client.getJson('$_base/sessions/any');
+    return body['any'] as bool;
+  }
+
+  // ── Match logs ───────────────────────────────────────────────────────────
+
+  Future<List<MatchLog>> getMatchLogs() async {
+    final body = await _client.getJson('$_base/match-logs') as List;
+    return [
+      for (final item in body) MatchLog.fromMap(item as Map<String, dynamic>),
+    ];
+  }
+
+  Future<void> insertMatchLog(MatchLog log) =>
+      _client.postJson('$_base/match-logs', log.toMap());
+
+  Future<void> insertMatchLogs(List<MatchLog> logs) => _client.postJson(
+        '$_base/match-logs/batch',
+        [for (final log in logs) log.toMap()],
+      );
+
+  Future<void> updateMatchLog(MatchLog log) =>
+      _client.putJson('$_base/match-logs/${log.id}', log.toMap());
+
+  Future<void> deleteMatchLog(String id) =>
+      _client.delete('$_base/match-logs/$id');
+
+  Future<bool> hasAnyMatchLogs() async {
+    final body = await _client.getJson('$_base/match-logs/any');
     return body['any'] as bool;
   }
 
