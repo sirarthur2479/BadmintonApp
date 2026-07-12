@@ -7,6 +7,7 @@ import 'package:badminton_flutter/models/match_log.dart';
 import 'package:badminton_flutter/models/session.dart';
 import 'package:badminton_flutter/providers/match_log_provider.dart';
 import 'package:badminton_flutter/providers/session_provider.dart';
+import 'package:badminton_flutter/screens/train/log_match_screen.dart';
 import 'package:badminton_flutter/screens/train/train_screen.dart';
 import 'package:badminton_flutter/services/database_service.dart';
 import 'package:badminton_flutter/widgets/match_log_card.dart';
@@ -112,7 +113,23 @@ void main() {
     await tester.tap(find.byType(FloatingActionButton));
     await tester.pumpAndSettle();
 
+    expect(find.byType(LogMatchScreen), findsOneWidget);
     expect(find.text('Log Match'), findsOneWidget);
+  });
+
+  testWidgets('tapping a card opens the log pre-filled for editing', (
+    tester,
+  ) async {
+    await pumpTrain(tester, logs: [log(id: 'edit-me', opponent: 'Ken T.')]);
+
+    await tester.tap(find.widgetWithText(Tab, 'Match Logs'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(MatchLogCard));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(LogMatchScreen), findsOneWidget);
+    expect(find.text('Edit Match'), findsOneWidget);
+    expect(find.text('Ken T.'), findsOneWidget);
   });
 
   testWidgets('delete flows through the confirm dialog', (tester) async {
