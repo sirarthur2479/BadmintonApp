@@ -79,3 +79,33 @@ def upsert_point(
         _own_match_log(conn, log_id, player_id)
         conn.execute(_INSERT, _values(point, log_id))
     return point.model_copy(update={"matchLogId": log_id})
+
+
+@router.post("/batch", status_code=201)
+def batch_upsert(
+    player_id: str, log_id: str, points: list[PointRecord], request: Request
+) -> dict:
+    # REPLACE, not IGNORE: the tagging screen saves whole re-taggable sets.
+    with get_conn(request.app.state.settings) as conn:
+        _own_match_log(conn, log_id, player_id)
+        conn.executemany(_INSERT, [_values(p, log_id) for p in points])
+    return {"received": len(points)}
+
+
+@router.delete("", status_code=204)
+def clear_points(player_id: str, log_id: str, request: Request) -> None:
+    with get_conn(request.app.state.settings) as conn:
+        _own_match_log(conn, log_id, player_id)
+        conn.execute("DELETE FROM point_records WHERE matchLogId = ?", (log_id,))
+
+
+@router.delete("/{point_id}", status_code=204)
+def delete_point(
+    player_id: str, log_id: str, point_id: str, request: Request
+) -> None:
+    with get_conn(request.app.state.settings) as conn:
+        _own_match_log(conn, log_id, player_id)
+        conn.execute(
+            "DELETE FROM point_records WHERE id = ? AND matchLogId = ?",
+            (point_id, log_id),
+        )
