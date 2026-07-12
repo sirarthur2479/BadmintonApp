@@ -14,18 +14,46 @@ class SessionHistoryScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Training History'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.ios_share),
-            tooltip: 'Export as Markdown',
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const ExportScreen()),
-            ),
-          ),
-        ],
+        actions: const [SessionExportAction()],
       ),
-      body: Consumer<SessionProvider>(
+      body: const SessionHistoryBody(),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const LogSessionScreen()),
+        ),
+        child: const Icon(Icons.add),
+      ),
+    );
+  }
+}
+
+/// The Sessions tab's app-bar export button (shared by the legacy
+/// standalone screen and TrainScreen).
+class SessionExportAction extends StatelessWidget {
+  const SessionExportAction({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      icon: const Icon(Icons.ios_share),
+      tooltip: 'Export as Markdown',
+      onPressed: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const ExportScreen()),
+      ),
+    );
+  }
+}
+
+/// The session list itself, scaffold-free so TrainScreen can host it as a
+/// tab body.
+class SessionHistoryBody extends StatelessWidget {
+  const SessionHistoryBody({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<SessionProvider>(
         builder: (context, provider, _) {
           final sessions = provider.sessions;
           if (sessions.isEmpty) {
@@ -122,15 +150,7 @@ class SessionHistoryScreen extends StatelessWidget {
               );
             },
           );
-        },
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const LogSessionScreen()),
-        ),
-        child: const Icon(Icons.add),
-      ),
+      },
     );
   }
 }

@@ -11,7 +11,7 @@ import 'providers/player_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/player/player_select_screen.dart';
 import 'screens/home/home_screen.dart';
-import 'screens/train/session_history_screen.dart';
+import 'screens/train/train_screen.dart';
 import 'screens/learn/technique_list_screen.dart';
 import 'screens/profile/profile_screen.dart';
 
@@ -85,7 +85,7 @@ class _MainShellState extends State<MainShell> {
 
   static const _tabs = [
     HomeScreen(),
-    SessionHistoryScreen(),
+    TrainScreen(),
     TechniqueListScreen(),
     ProfileScreen(),
   ];
