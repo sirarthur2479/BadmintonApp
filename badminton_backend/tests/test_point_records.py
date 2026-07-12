@@ -84,3 +84,54 @@ def test_post_same_id_replaces_row(client, auth_headers, player, match_log):
 
     listed = client.get(url(player, match_log), headers=auth_headers).json()
     assert listed == [edited]
+
+
+def test_batch_replaces_existing_ids(client, auth_headers, player, match_log):
+    client.post(url(player, match_log), json=FLUTTER_POINT_RECORD, headers=auth_headers)
+    batch = [
+        point_payload(winner="player", endingType="winner"),  # same id: replaced
+        point_payload(id="pt-2", game=2, indexInGame=16),
+    ]
+
+    resp = client.post(url(player, match_log, "/batch"), json=batch, headers=auth_headers)
+    listed = client.get(url(player, match_log), headers=auth_headers).json()
+
+    assert resp.status_code == 201
+    assert resp.json() == {"received": 2}
+    assert [p["id"] for p in listed] == ["pt-1", "pt-2"]
+    assert listed[0]["winner"] == "player", "batch upserts, not ignores"
+
+
+def test_clear_all_removes_only_this_logs_points(client, auth_headers, player, match_log):
+    other_log = dict(FLUTTER_MATCH_LOG, id="matchlog-2")
+    client.post(
+        f"/api/v1/players/{player}/match-logs", json=other_log, headers=auth_headers
+    )
+    client.post(url(player, match_log), json=FLUTTER_POINT_RECORD, headers=auth_headers)
+    client.post(
+        url(player, "matchlog-2"),
+        json=point_payload(id="pt-other", matchLogId="matchlog-2"),
+        headers=auth_headers,
+    )
+
+    resp = client.delete(url(player, match_log), headers=auth_headers)
+
+    assert resp.status_code == 204
+    assert client.get(url(player, match_log), headers=auth_headers).json() == []
+    kept = client.get(url(player, "matchlog-2"), headers=auth_headers).json()
+    assert [p["id"] for p in kept] == ["pt-other"]
+
+
+def test_delete_removes_single_point(client, auth_headers, player, match_log):
+    client.post(url(player, match_log), json=FLUTTER_POINT_RECORD, headers=auth_headers)
+    client.post(
+        url(player, match_log),
+        json=point_payload(id="pt-2", indexInGame=16),
+        headers=auth_headers,
+    )
+
+    resp = client.delete(url(player, match_log, "/pt-1"), headers=auth_headers)
+
+    assert resp.status_code == 204
+    listed = client.get(url(player, match_log), headers=auth_headers).json()
+    assert [p["id"] for p in listed] == ["pt-2"]
